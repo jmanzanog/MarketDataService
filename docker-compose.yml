@@ -4,6 +4,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      - HOST=0.0.0.0 # Bind to all interfaces in container
       - LOG_LEVEL=INFO
       - DEBUG=false
     restart: unless-stopped
