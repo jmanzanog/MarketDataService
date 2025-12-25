@@ -1,6 +1,6 @@
 """Comprehensive tests for the Market Data Service API with 100% coverage."""
 
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient

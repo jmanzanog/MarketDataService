@@ -53,4 +53,4 @@ async def get_quote(symbol: str) -> QuoteResponse:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get quote: {str(e)}",
-        )
+        ) from e

@@ -1,7 +1,7 @@
 """Yahoo Finance service using yfinance library."""
 
 import logging
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import yfinance as yf
 
@@ -119,7 +119,7 @@ class YahooFinanceService:
                 symbol=symbol,
                 price=price_str,
                 currency=currency,
-                time=datetime.now(timezone.utc).isoformat(),
+                time=datetime.now(UTC).isoformat(),
             )
 
         except Exception as e:

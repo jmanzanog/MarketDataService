@@ -53,4 +53,4 @@ async def search_by_isin(isin: str) -> InstrumentResponse:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to search for instrument: {str(e)}",
-        )
+        ) from e
