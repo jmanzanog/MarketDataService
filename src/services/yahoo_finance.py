@@ -37,18 +37,18 @@ class YahooFinanceService:
     # Common suffixes ordered by probability for European ETFs/stocks
     FALLBACK_SUFFIXES = [
         ".DE",  # Germany (XETRA, Frankfurt, Stuttgart)
-        ".L",   # London
+        ".L",  # London
         ".PA",  # Paris
         ".AS",  # Amsterdam
         ".MI",  # Milan
         ".SW",  # Switzerland
         ".MC",  # Madrid
         ".BR",  # Brussels
-        "",     # US (no suffix)
+        "",  # US (no suffix)
         ".TO",  # Toronto
         ".AX",  # Australia
         ".HK",  # Hong Kong
-        ".T",   # Tokyo
+        ".T",  # Tokyo
     ]
 
     def search_by_isin(self, isin: str) -> InstrumentResponse | None:
@@ -90,11 +90,13 @@ class YahooFinanceService:
                 return result
 
             base_symbol = original_symbol.rsplit(".", 1)[0]
-            
+
             # OPTIMIZATION: If the base symbol is the ISIN itself, trying suffixes is usually futile
             # (ETFs use mnemonics like 'NATO', not 'IE000...'). Skip to save time.
             if base_symbol == isin:
-                logger.warning(f"Base ticker matches ISIN {isin}. Skipping suffix loop (unlikely to work).")
+                logger.warning(
+                    f"Base ticker matches ISIN {isin}. Skipping suffix loop (unlikely to work)."
+                )
             else:
                 # Step 3: Try alternative suffixes
                 logger.warning(
@@ -110,7 +112,9 @@ class YahooFinanceService:
                     logger.debug(f"Trying suffix {suffix} for {isin}: {candidate_symbol}")
                     result = self._try_get_instrument_info(isin, candidate_symbol, quote)
                     if result:
-                        logger.warning(f"SUCCESS: Found valid fallback symbol for {isin} -> {candidate_symbol}")
+                        logger.warning(
+                            f"SUCCESS: Found valid fallback symbol for {isin} -> {candidate_symbol}"
+                        )
                         return result
 
             # Step 3.5: Search by Name (New Strategy)
@@ -123,7 +127,9 @@ class YahooFinanceService:
                     return result
 
             # Step 4: Try justETF as last resort
-            logger.warning(f"All Yahoo attempts failed for {isin}. Attempting justETF scraping fallback...")
+            logger.warning(
+                f"All Yahoo attempts failed for {isin}. Attempting justETF scraping fallback..."
+            )
             return self._try_justetf_fallback(isin)
 
         except Exception as e:
@@ -150,12 +156,12 @@ class YahooFinanceService:
 
             # Check if we have valid price data (indicates valid symbol)
             price = info.get("regularMarketPrice") or info.get("currentPrice")
-            
+
             # Stricter check: None, NaN or 0.0 are considered invalid
             if price is None or math.isnan(float(price)) or float(price) <= 0:
                 return None
 
-            # DETECT "GHOST" SYMBOLS: 
+            # DETECT "GHOST" SYMBOLS:
             # If symbol contains the ISIN and lacks a longName, it's usually a dummy record in Yahoo.
             # Real symbols for these ETFs usually have a proper ticker (e.g. NATO.L)
             symbol_base = symbol.split(".")[0]
@@ -176,9 +182,7 @@ class YahooFinanceService:
             return InstrumentResponse(
                 isin=isin,
                 symbol=symbol,
-                name=info.get(
-                    "longName", info.get("shortName", quote.get("shortname", symbol))
-                ),
+                name=info.get("longName", info.get("shortName", quote.get("shortname", symbol))),
                 type=instrument_type,
                 currency=currency,
                 exchange=exchange,
@@ -203,21 +207,34 @@ class YahooFinanceService:
             # Clean name aggressiveley to get the "core" fund name which works best in Yahoo search
             # Remove: "UCITS", "ETF", "Acc", "Dist", issuer names like "HANetf", "iShares", etc.
             # Example: "HANetf Future of Defence UCITS ETF" -> "Future of Defence"
-            
+
             remove_terms = [
-                "UCITS", "ETF", "Acc", "Dist", "Class", "USD", "EUR", "GBP", 
-                "HANetf", "iShares", "Vanguard", "Amundi", "Invesco", "Xtrackers", "SPDR"
+                "UCITS",
+                "ETF",
+                "Acc",
+                "Dist",
+                "Class",
+                "USD",
+                "EUR",
+                "GBP",
+                "HANetf",
+                "iShares",
+                "Vanguard",
+                "Amundi",
+                "Invesco",
+                "Xtrackers",
+                "SPDR",
             ]
-            
+
             search_query = name
             for term in remove_terms:
                 search_query = search_query.replace(term, "")
-            
+
             search_query = search_query.strip()
             # If name becomes too short, revert to original (safety check)
             if len(search_query) < 4:
                 search_query = name
-            
+
             logger.debug(f"Searching Yahoo by name: {search_query} (Original: {name})")
             search_result = yf.Search(search_query)
 
@@ -225,13 +242,13 @@ class YahooFinanceService:
                 return None
 
             # Iterate through results to find a valid one
-            for quote in search_result.quotes[:3]: # Check top 3 results
+            for quote in search_result.quotes[:3]:  # Check top 3 results
                 symbol = quote.get("symbol")
                 if not symbol:
                     continue
-                
+
                 # Avoid circular reference back to the ghost ISIN symbol
-                if isin in symbol: 
+                if isin in symbol:
                     continue
 
                 result = self._try_get_instrument_info(isin, symbol, quote)
@@ -270,7 +287,7 @@ class YahooFinanceService:
                 logger.warning(f"justETF fallback SUCCEEDED for {isin} -> {ticker_info.symbol}")
                 return result
 
-            # 2. CROSS-POLLINATION: The suggested suffix failed, let's try the 
+            # 2. CROSS-POLLINATION: The suggested suffix failed, let's try the
             # suggested Ticker with OTHER Yahoo suffixes.
             # Example: JustETF says NATO.DE but Yahoo only likes NATO.L
             base_ticker = ticker_info.symbol.split(".")[0]
@@ -283,12 +300,14 @@ class YahooFinanceService:
                 candidate = f"{base_ticker}{suffix}"
                 if candidate == ticker_info.symbol:
                     continue
-                
+
                 result = self._try_get_instrument_info(
                     isin, candidate, {"shortname": ticker_info.name}
                 )
                 if result:
-                    logger.warning(f"SUCCESS: Cross-referencing {isin}: JustETF ticker {base_ticker} + suffix {suffix} -> {candidate}")
+                    logger.warning(
+                        f"SUCCESS: Cross-referencing {isin}: JustETF ticker {base_ticker} + suffix {suffix} -> {candidate}"
+                    )
                     return result
 
             # 3. Final fallback: Return info even without price if it's better than nothing
@@ -340,7 +359,9 @@ class YahooFinanceService:
 
                 base_part = symbol.split(".")[0] if "." in symbol else symbol
                 if re.match(r"^[A-Z]{2}[A-Z0-9]{9}\d$", base_part):
-                    logger.warning(f"Symbol {symbol} appears to be invalid or a ghost record. Attempting repair...")
+                    logger.warning(
+                        f"Symbol {symbol} appears to be invalid or a ghost record. Attempting repair..."
+                    )
                     better_instrument = self.search_by_isin(base_part)
                     if better_instrument and better_instrument.symbol != symbol:
                         logger.warning(
@@ -393,12 +414,14 @@ class YahooFinanceService:
             Tuple of (successful results, errors as list of (isin, error_message)).
         """
         import asyncio
-        
+
         results: list[InstrumentResponse] = []
         errors: list[tuple[str, str]] = []
 
         # Execute all searches in parallel provided by asyncio.to_thread (uses global pool)
-        async def search_single_wrapper(isin: str) -> tuple[str, InstrumentResponse | None, str | None]:
+        async def search_single_wrapper(
+            isin: str,
+        ) -> tuple[str, InstrumentResponse | None, str | None]:
             try:
                 # Run the blocking search_by_isin in a separate thread
                 result = await asyncio.to_thread(self.search_by_isin, isin)

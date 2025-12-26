@@ -945,9 +945,7 @@ class TestBatchServiceMethods:
         mock_yf.Ticker.return_value = mock_ticker
 
         service = YahooFinanceService()
-        results, errors = await service.batch_search_by_isins(
-            ["US0378331005", "INVALID"]
-        )
+        results, errors = await service.batch_search_by_isins(["US0378331005", "INVALID"])
 
         assert len(results) == 1
         assert len(errors) == 1
@@ -1142,14 +1140,14 @@ class TestFallbackProviders:
 
         # Mock response with ticker in HTML
         mock_response = MagicMock()
-        mock_response.text = '''
+        mock_response.text = """
             <html>
             <h1>Test ETF Name</h1>
             <script>{"ticker": "NATO"}</script>
             <div>XETRA</div>
             <span>EUR</span>
             </html>
-        '''
+        """
         mock_response.raise_for_status = MagicMock()
         mock_requests.get.return_value = mock_response
 
@@ -1194,14 +1192,14 @@ class TestFallbackProviders:
         from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
-        mock_response.text = '''
+        mock_response.text = """
             <html>
             <h1>Test ETF</h1>
             <script>{"ticker": "TEST"}</script>
             <div>London Stock Exchange</div>
             <span>GBP</span>
             </html>
-        '''
+        """
         mock_response.raise_for_status = MagicMock()
         mock_requests.get.return_value = mock_response
 
@@ -1218,12 +1216,12 @@ class TestFallbackProviders:
         from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
-        mock_response.text = '''
+        mock_response.text = """
             <html>
             <title>My ETF | justETF</title>
             <script>{"ticker": "TEST"}</script>
             </html>
-        '''
+        """
         mock_response.raise_for_status = MagicMock()
         mock_requests.get.return_value = mock_response
 
@@ -1239,12 +1237,12 @@ class TestFallbackProviders:
         from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
-        mock_response.text = '''
+        mock_response.text = """
             <html>
             <h1>Unknown ETF</h1>
             <script>{"ticker": "UNK"}</script>
             </html>
-        '''
+        """
         mock_response.raise_for_status = MagicMock()
         mock_requests.get.return_value = mock_response
 
@@ -1288,7 +1286,6 @@ class TestFallbackProviders:
 
         assert result is not None
         assert result.name == "NATO"  # Falls back to ticker
-
 
 
 class TestYahooFinanceFallbackLogic:
@@ -1436,4 +1433,3 @@ class TestYahooFinanceFallbackLogic:
         result = service.search_by_isin("TEST123")
 
         assert result is None
-

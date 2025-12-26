@@ -1,4 +1,3 @@
-
 import pytest
 from fastapi.testclient import TestClient
 from src.main import app
@@ -20,6 +19,7 @@ PORTFOLIO_ISINS = [
     "US0090661010",  # Airbnb
     "US8740391003",  # Taiwan Semi (US ADR)
 ]
+
 
 @pytest.mark.integration
 class TestRealPortfolioIntegration:
@@ -57,7 +57,7 @@ class TestRealPortfolioIntegration:
         assert len(failures) == 0, f"Expected 0 failures, got {len(failures)}"
 
         # Verify specific tricky instruments
-        results = data.get("results", []) # Correct key is 'results', not 'successful'
+        results = data.get("results", [])  # Correct key is 'results', not 'successful'
         print("\nSuccessful results:")
         for r in results:
             print(f" - {r['isin']} -> {r['symbol']}")
@@ -70,7 +70,9 @@ class TestRealPortfolioIntegration:
         print(f"\nFound Future of Defence as: {defense_etf['symbol']} ({defense_etf['name']})")
         # ASWC.DE is the Xetra ticker for Future of Defence, NATO.L is London. Both are valid.
         valid_tickers = ["NATO", "OF", "ASWC"]
-        assert any(t in defense_etf["symbol"] for t in valid_tickers), f"Unexpected ticker {defense_etf['symbol']}"
+        assert any(t in defense_etf["symbol"] for t in valid_tickers), (
+            f"Unexpected ticker {defense_etf['symbol']}"
+        )
 
         # Check 'BYD' (CNE100000296) - usually 1211.HK
         byd = results_map.get("CNE100000296")
