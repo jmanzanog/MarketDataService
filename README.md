@@ -5,7 +5,9 @@ A lightweight Python microservice that provides stock market data via REST API, 
 ## Features
 
 - 🔍 **ISIN Search**: Search for financial instruments by ISIN code
+- 🛡️ **Robust Lookup**: Automatic fallback to multiple exchanges and alternative sources (justETF) for accurate results
 - 💰 **Real-time Quotes**: Get current stock prices for any symbol
+- 📦 **Batch Operations**: Search multiple ISINs or get multiple quotes in parallel
 - 🌐 **Global Coverage**: Supports US, UK, EU, Asian markets
 - 🚀 **Fast**: Built with FastAPI for high performance
 - 🐳 **Docker Ready**: Production-ready containerization
@@ -16,7 +18,9 @@ A lightweight Python microservice that provides stock market data via REST API, 
 |--------|----------|-------------|
 | `GET` | `/health` | Health check |
 | `GET` | `/api/v1/search/{isin}` | Search instrument by ISIN |
+| `POST` | `/api/v1/search/batch` | Search multiple instruments by ISIN |
 | `GET` | `/api/v1/quote/{symbol}` | Get current quote for symbol |
+| `POST` | `/api/v1/quote/batch` | Get quotes for multiple symbols |
 | `GET` | `/docs` | OpenAPI documentation |
 
 ### Examples
@@ -50,6 +54,76 @@ Response:
   "price": "195.5000",
   "currency": "USD",
   "time": "2024-12-24T15:00:00+00:00"
+}
+```
+
+**Batch Search by ISIN:**
+```bash
+curl -X POST http://localhost:8000/api/v1/search/batch \
+  -H "Content-Type: application/json" \
+  -d '{"isins": ["US0378331005", "DE0007164600", "INVALID123"]}'
+```
+
+Response:
+```json
+{
+  "results": [
+    {
+      "isin": "US0378331005",
+      "symbol": "AAPL",
+      "name": "Apple Inc.",
+      "type": "stock",
+      "currency": "USD",
+      "exchange": "NASDAQ"
+    },
+    {
+      "isin": "DE0007164600",
+      "symbol": "SAP",
+      "name": "SAP SE",
+      "type": "stock",
+      "currency": "EUR",
+      "exchange": "XETRA"
+    }
+  ],
+  "errors": [
+    {
+      "isin": "INVALID123",
+      "error": "No instrument found for ISIN"
+    }
+  ]
+}
+```
+
+**Batch Get Quotes:**
+```bash
+curl -X POST http://localhost:8000/api/v1/quote/batch \
+  -H "Content-Type: application/json" \
+  -d '{"symbols": ["AAPL", "SAP", "INVALID"]}'
+```
+
+Response:
+```json
+{
+  "results": [
+    {
+      "symbol": "AAPL",
+      "price": "193.4200",
+      "currency": "USD",
+      "time": "2025-12-26T10:30:00Z"
+    },
+    {
+      "symbol": "SAP",
+      "price": "142.5000",
+      "currency": "EUR",
+      "time": "2025-12-26T10:30:00Z"
+    }
+  ],
+  "errors": [
+    {
+      "symbol": "INVALID",
+      "error": "No quote data available"
+    }
+  ]
 }
 ```
 
