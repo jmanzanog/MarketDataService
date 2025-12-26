@@ -73,11 +73,12 @@ jobs:
     permissions:
       packages: write
     steps:
-      - name: Delete old untagged images
-        uses: actions/delete-package-versions@v5
+      - name: Delete older images
+        uses: snok/container-retention-policy@v3.0.0
         with:
-          package-name: 'market-data-service'
-          package-type: 'container'
-          delete-only-untagged-versions: 'true'
-          min-versions-to-keep: 5
+          image-names: market-data-service
+          cut-off: 2 weeks ago UTC
+          keep-at-least: 20
+          account-type: personal
+          skip-tags: latest
 
