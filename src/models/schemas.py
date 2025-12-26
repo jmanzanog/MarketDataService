@@ -72,9 +72,7 @@ class BatchSearchResponse(BaseModel):
     results: list[InstrumentResponse] = Field(
         default_factory=list, description="Successful search results"
     )
-    errors: list[SearchErrorItem] = Field(
-        default_factory=list, description="Failed search items"
-    )
+    errors: list[SearchErrorItem] = Field(default_factory=list, description="Failed search items")
 
 
 class BatchQuoteResponse(BaseModel):
@@ -83,6 +81,4 @@ class BatchQuoteResponse(BaseModel):
     results: list[QuoteResponse] = Field(
         default_factory=list, description="Successful quote results"
     )
-    errors: list[QuoteErrorItem] = Field(
-        default_factory=list, description="Failed quote items"
-    )
+    errors: list[QuoteErrorItem] = Field(default_factory=list, description="Failed quote items")

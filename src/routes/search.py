@@ -82,13 +82,9 @@ async def batch_search_by_isins(request: BatchSearchRequest) -> BatchSearchRespo
         BatchSearchResponse with successful results and individual errors.
     """
     try:
-        results, errors = await yahoo_finance_service.batch_search_by_isins(
-            request.isins
-        )
+        results, errors = await yahoo_finance_service.batch_search_by_isins(request.isins)
 
-        error_items = [
-            SearchErrorItem(isin=isin, error=error) for isin, error in errors
-        ]
+        error_items = [SearchErrorItem(isin=isin, error=error) for isin, error in errors]
 
         return BatchSearchResponse(results=results, errors=error_items)
 

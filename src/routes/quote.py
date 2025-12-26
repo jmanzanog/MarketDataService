@@ -82,13 +82,9 @@ async def batch_get_quotes(request: BatchQuoteRequest) -> BatchQuoteResponse:
         BatchQuoteResponse with successful results and individual errors.
     """
     try:
-        results, errors = await yahoo_finance_service.batch_get_quotes(
-            request.symbols
-        )
+        results, errors = await yahoo_finance_service.batch_get_quotes(request.symbols)
 
-        error_items = [
-            QuoteErrorItem(symbol=symbol, error=error) for symbol, error in errors
-        ]
+        error_items = [QuoteErrorItem(symbol=symbol, error=error) for symbol, error in errors]
 
         return BatchQuoteResponse(results=results, errors=error_items)
 

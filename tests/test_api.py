@@ -701,6 +701,7 @@ class TestBatchSearchEndpoint:
     @patch("src.routes.search.yahoo_finance_service")
     def test_batch_search_all_errors(self, mock_service):
         """Test batch search when all ISINs fail."""
+
         async def mock_batch_search(isins):
             return (
                 [],
@@ -725,6 +726,7 @@ class TestBatchSearchEndpoint:
     @patch("src.routes.search.yahoo_finance_service")
     def test_batch_search_service_error(self, mock_service):
         """Test batch search when service throws an exception."""
+
         async def mock_batch_search(isins):
             raise Exception("Service unavailable")
 
@@ -816,6 +818,7 @@ class TestBatchQuoteEndpoint:
     @patch("src.routes.quote.yahoo_finance_service")
     def test_batch_quote_all_errors(self, mock_service):
         """Test batch quote when all symbols fail."""
+
         async def mock_batch_quotes(symbols):
             return (
                 [],
@@ -840,6 +843,7 @@ class TestBatchQuoteEndpoint:
     @patch("src.routes.quote.yahoo_finance_service")
     def test_batch_quote_service_error(self, mock_service):
         """Test batch quote when service throws an exception."""
+
         async def mock_batch_quotes(symbols):
             raise Exception("Network timeout")
 
@@ -914,9 +918,7 @@ class TestBatchServiceMethods:
         mock_yf.Ticker.return_value = mock_ticker
 
         service = YahooFinanceService()
-        results, errors = await service.batch_search_by_isins(
-            ["US0378331005", "INVALID"]
-        )
+        results, errors = await service.batch_search_by_isins(["US0378331005", "INVALID"])
 
         assert len(results) == 1
         assert len(errors) == 1

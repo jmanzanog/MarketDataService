@@ -141,7 +141,6 @@ class YahooFinanceService:
         # Default to US exchanges for symbols without suffix
         return "NYSE/NASDAQ"
 
-
     async def batch_search_by_isins(
         self, isins: list[str]
     ) -> tuple[list[InstrumentResponse], list[tuple[str, str]]]:
@@ -165,9 +164,7 @@ class YahooFinanceService:
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor(max_workers=1) as executor:
                 try:
-                    result = await loop.run_in_executor(
-                        executor, self.search_by_isin, isin
-                    )
+                    result = await loop.run_in_executor(executor, self.search_by_isin, isin)
                     if result is None:
                         return (isin, None, "No instrument found for ISIN")
                     return (isin, result, None)
@@ -210,9 +207,7 @@ class YahooFinanceService:
             loop = asyncio.get_event_loop()
             with ThreadPoolExecutor(max_workers=1) as executor:
                 try:
-                    result = await loop.run_in_executor(
-                        executor, self.get_quote, symbol
-                    )
+                    result = await loop.run_in_executor(executor, self.get_quote, symbol)
                     if result is None:
                         return (symbol, None, "No quote data available")
                     return (symbol, result, None)
