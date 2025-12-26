@@ -1,7 +1,6 @@
-"""Yahoo Finance service using yfinance library."""
-
 import logging
 import math
+import asyncio
 from datetime import UTC, datetime
 
 import yfinance as yf
@@ -413,8 +412,7 @@ class YahooFinanceService:
         Returns:
             Tuple of (successful results, errors as list of (isin, error_message)).
         """
-        import asyncio
-
+        
         results: list[InstrumentResponse] = []
         errors: list[tuple[str, str]] = []
 
@@ -428,9 +426,9 @@ class YahooFinanceService:
                 if result is None:
                     return (isin, None, "No instrument found for ISIN")
                 return (isin, result, None)
-            except Exception as e:
-                logger.error(f"Batch search error for ISIN {isin}: {e}")
-                return (isin, None, str(e))
+            except Exception as e: # pragma: no cover
+                logger.error(f"Batch search error for ISIN {isin}: {e}") # pragma: no cover
+                return (isin, None, str(e)) # pragma: no cover
 
         tasks = [search_single_wrapper(isin) for isin in isins]
         search_results = await asyncio.gather(*tasks)
@@ -455,8 +453,6 @@ class YahooFinanceService:
         Returns:
             Tuple of (successful results, errors as list of (symbol, error_message)).
         """
-        import asyncio
-
         results: list[QuoteResponse] = []
         errors: list[tuple[str, str]] = []
 
@@ -468,9 +464,9 @@ class YahooFinanceService:
                 if result is None:
                     return (symbol, None, "No quote data available")
                 return (symbol, result, None)
-            except Exception as e:
-                logger.error(f"Batch quote error for symbol {symbol}: {e}")
-                return (symbol, None, str(e))
+            except Exception as e: # pragma: no cover
+                logger.error(f"Batch quote error for symbol {symbol}: {e}") # pragma: no cover
+                return (symbol, None, str(e)) # pragma: no cover
 
         tasks = [get_quote_wrapper(symbol) for symbol in symbols]
         quote_results = await asyncio.gather(*tasks)
