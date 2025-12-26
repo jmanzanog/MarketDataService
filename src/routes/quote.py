@@ -4,7 +4,13 @@ import logging
 
 from fastapi import APIRouter, HTTPException
 
-from src.models.schemas import ErrorResponse, QuoteResponse
+from src.models.schemas import (
+    BatchQuoteRequest,
+    BatchQuoteResponse,
+    ErrorResponse,
+    QuoteErrorItem,
+    QuoteResponse,
+)
 from src.services.yahoo_finance import yahoo_finance_service
 
 logger = logging.getLogger(__name__)
@@ -53,4 +59,42 @@ async def get_quote(symbol: str) -> QuoteResponse:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get quote: {str(e)}",
+        ) from e
+
+
+@router.post(
+    "/batch",
+    response_model=BatchQuoteResponse,
+    responses={
+        500: {"model": ErrorResponse, "description": "Internal server error"},
+    },
+    summary="Batch get quotes by symbol",
+    description="Get current price quotes for multiple trading symbols in parallel.",
+)
+async def batch_get_quotes(request: BatchQuoteRequest) -> BatchQuoteResponse:
+    """
+    Get quotes for multiple trading symbols.
+
+    Args:
+        request: BatchQuoteRequest containing list of symbols.
+
+    Returns:
+        BatchQuoteResponse with successful results and individual errors.
+    """
+    try:
+        results, errors = await yahoo_finance_service.batch_get_quotes(
+            request.symbols
+        )
+
+        error_items = [
+            QuoteErrorItem(symbol=symbol, error=error) for symbol, error in errors
+        ]
+
+        return BatchQuoteResponse(results=results, errors=error_items)
+
+    except Exception as e:
+        logger.error(f"Failed to perform batch quote: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to perform batch quote: {str(e)}",
         ) from e

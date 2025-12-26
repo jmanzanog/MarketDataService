@@ -44,7 +44,7 @@ class YahooFinanceService:
         """
         try:
             # yfinance search endpoint
-            search_result = yf.Search(isin, news_count=0, quotes_count=5)
+            search_result = yf.Search(isin)
 
             if not search_result.quotes:
                 logger.warning(f"No results found for ISIN: {isin}")
@@ -140,6 +140,97 @@ class YahooFinanceService:
 
         # Default to US exchanges for symbols without suffix
         return "NYSE/NASDAQ"
+
+
+    async def batch_search_by_isins(
+        self, isins: list[str]
+    ) -> tuple[list[InstrumentResponse], list[tuple[str, str]]]:
+        """
+        Search for multiple instruments by their ISIN codes in parallel.
+
+        Args:
+            isins: List of ISIN codes to search for.
+
+        Returns:
+            Tuple of (successful results, errors as list of (isin, error_message)).
+        """
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        results: list[InstrumentResponse] = []
+        errors: list[tuple[str, str]] = []
+
+        async def search_single(isin: str) -> tuple[str, InstrumentResponse | None, str | None]:
+            """Search a single ISIN in a thread pool."""
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                try:
+                    result = await loop.run_in_executor(
+                        executor, self.search_by_isin, isin
+                    )
+                    if result is None:
+                        return (isin, None, "No instrument found for ISIN")
+                    return (isin, result, None)
+                except Exception as e:
+                    logger.error(f"Batch search error for ISIN {isin}: {e}")
+                    return (isin, None, str(e))
+
+        # Execute all searches in parallel
+        tasks = [search_single(isin) for isin in isins]
+        search_results = await asyncio.gather(*tasks)
+
+        for isin, result, error in search_results:
+            if result is not None:
+                results.append(result)
+            elif error is not None:
+                errors.append((isin, error))
+
+        return results, errors
+
+    async def batch_get_quotes(
+        self, symbols: list[str]
+    ) -> tuple[list[QuoteResponse], list[tuple[str, str]]]:
+        """
+        Get quotes for multiple symbols in parallel.
+
+        Args:
+            symbols: List of trading symbols.
+
+        Returns:
+            Tuple of (successful results, errors as list of (symbol, error_message)).
+        """
+        import asyncio
+        from concurrent.futures import ThreadPoolExecutor
+
+        results: list[QuoteResponse] = []
+        errors: list[tuple[str, str]] = []
+
+        async def get_single_quote(symbol: str) -> tuple[str, QuoteResponse | None, str | None]:
+            """Get a single quote in a thread pool."""
+            loop = asyncio.get_event_loop()
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                try:
+                    result = await loop.run_in_executor(
+                        executor, self.get_quote, symbol
+                    )
+                    if result is None:
+                        return (symbol, None, "No quote data available")
+                    return (symbol, result, None)
+                except Exception as e:
+                    logger.error(f"Batch quote error for symbol {symbol}: {e}")
+                    return (symbol, None, str(e))
+
+        # Execute all quote requests in parallel
+        tasks = [get_single_quote(symbol) for symbol in symbols]
+        quote_results = await asyncio.gather(*tasks)
+
+        for symbol, result, error in quote_results:
+            if result is not None:
+                results.append(result)
+            elif error is not None:
+                errors.append((symbol, error))
+
+        return results, errors
 
 
 # Singleton instance

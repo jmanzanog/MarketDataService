@@ -616,3 +616,486 @@ class TestSchemas:
 
         assert error.error == "Server error"
         assert error.detail is None
+
+
+class TestBatchSearchEndpoint:
+    """Tests for the batch search endpoint."""
+
+    @patch("src.routes.search.yahoo_finance_service")
+    def test_batch_search_success(self, mock_service):
+        """Test successful batch ISIN search."""
+        from src.models.schemas import InstrumentResponse
+
+        # Mock the async method
+        async def mock_batch_search(isins):
+            return (
+                [
+                    InstrumentResponse(
+                        isin="US0378331005",
+                        symbol="AAPL",
+                        name="Apple Inc.",
+                        type="stock",
+                        currency="USD",
+                        exchange="NASDAQ",
+                    ),
+                    InstrumentResponse(
+                        isin="DE0007164600",
+                        symbol="SAP",
+                        name="SAP SE",
+                        type="stock",
+                        currency="EUR",
+                        exchange="XETRA",
+                    ),
+                ],
+                [],
+            )
+
+        mock_service.batch_search_by_isins = mock_batch_search
+
+        response = client.post(
+            "/api/v1/search/batch",
+            json={"isins": ["US0378331005", "DE0007164600"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["results"]) == 2
+        assert len(data["errors"]) == 0
+        assert data["results"][0]["isin"] == "US0378331005"
+        assert data["results"][1]["isin"] == "DE0007164600"
+
+    @patch("src.routes.search.yahoo_finance_service")
+    def test_batch_search_partial_errors(self, mock_service):
+        """Test batch search with some ISINs not found."""
+        from src.models.schemas import InstrumentResponse
+
+        async def mock_batch_search(isins):
+            return (
+                [
+                    InstrumentResponse(
+                        isin="US0378331005",
+                        symbol="AAPL",
+                        name="Apple Inc.",
+                        type="stock",
+                        currency="USD",
+                        exchange="NASDAQ",
+                    ),
+                ],
+                [("INVALID_ISIN", "No instrument found for ISIN")],
+            )
+
+        mock_service.batch_search_by_isins = mock_batch_search
+
+        response = client.post(
+            "/api/v1/search/batch",
+            json={"isins": ["US0378331005", "INVALID_ISIN"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["results"]) == 1
+        assert len(data["errors"]) == 1
+        assert data["errors"][0]["isin"] == "INVALID_ISIN"
+        assert "No instrument found" in data["errors"][0]["error"]
+
+    @patch("src.routes.search.yahoo_finance_service")
+    def test_batch_search_all_errors(self, mock_service):
+        """Test batch search when all ISINs fail."""
+        async def mock_batch_search(isins):
+            return (
+                [],
+                [
+                    ("INVALID1", "No instrument found for ISIN"),
+                    ("INVALID2", "No instrument found for ISIN"),
+                ],
+            )
+
+        mock_service.batch_search_by_isins = mock_batch_search
+
+        response = client.post(
+            "/api/v1/search/batch",
+            json={"isins": ["INVALID1", "INVALID2"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["results"]) == 0
+        assert len(data["errors"]) == 2
+
+    @patch("src.routes.search.yahoo_finance_service")
+    def test_batch_search_service_error(self, mock_service):
+        """Test batch search when service throws an exception."""
+        async def mock_batch_search(isins):
+            raise Exception("Service unavailable")
+
+        mock_service.batch_search_by_isins = mock_batch_search
+
+        response = client.post(
+            "/api/v1/search/batch",
+            json={"isins": ["US0378331005"]},
+        )
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "Service unavailable" in data["detail"]
+
+
+class TestBatchQuoteEndpoint:
+    """Tests for the batch quote endpoint."""
+
+    @patch("src.routes.quote.yahoo_finance_service")
+    def test_batch_quote_success(self, mock_service):
+        """Test successful batch quote retrieval."""
+        from src.models.schemas import QuoteResponse
+
+        async def mock_batch_quotes(symbols):
+            return (
+                [
+                    QuoteResponse(
+                        symbol="AAPL",
+                        price="193.4200",
+                        currency="USD",
+                        time="2025-12-26T10:30:00Z",
+                    ),
+                    QuoteResponse(
+                        symbol="SAP",
+                        price="142.5000",
+                        currency="EUR",
+                        time="2025-12-26T10:30:00Z",
+                    ),
+                ],
+                [],
+            )
+
+        mock_service.batch_get_quotes = mock_batch_quotes
+
+        response = client.post(
+            "/api/v1/quote/batch",
+            json={"symbols": ["AAPL", "SAP"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["results"]) == 2
+        assert len(data["errors"]) == 0
+        assert data["results"][0]["symbol"] == "AAPL"
+        assert data["results"][1]["symbol"] == "SAP"
+
+    @patch("src.routes.quote.yahoo_finance_service")
+    def test_batch_quote_partial_errors(self, mock_service):
+        """Test batch quote with some symbols not found."""
+        from src.models.schemas import QuoteResponse
+
+        async def mock_batch_quotes(symbols):
+            return (
+                [
+                    QuoteResponse(
+                        symbol="AAPL",
+                        price="193.4200",
+                        currency="USD",
+                        time="2025-12-26T10:30:00Z",
+                    ),
+                ],
+                [("RR.L", "No quote data available")],
+            )
+
+        mock_service.batch_get_quotes = mock_batch_quotes
+
+        response = client.post(
+            "/api/v1/quote/batch",
+            json={"symbols": ["AAPL", "RR.L"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["results"]) == 1
+        assert len(data["errors"]) == 1
+        assert data["errors"][0]["symbol"] == "RR.L"
+        assert "No quote data available" in data["errors"][0]["error"]
+
+    @patch("src.routes.quote.yahoo_finance_service")
+    def test_batch_quote_all_errors(self, mock_service):
+        """Test batch quote when all symbols fail."""
+        async def mock_batch_quotes(symbols):
+            return (
+                [],
+                [
+                    ("INVALID1", "No quote data available"),
+                    ("INVALID2", "No quote data available"),
+                ],
+            )
+
+        mock_service.batch_get_quotes = mock_batch_quotes
+
+        response = client.post(
+            "/api/v1/quote/batch",
+            json={"symbols": ["INVALID1", "INVALID2"]},
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert len(data["results"]) == 0
+        assert len(data["errors"]) == 2
+
+    @patch("src.routes.quote.yahoo_finance_service")
+    def test_batch_quote_service_error(self, mock_service):
+        """Test batch quote when service throws an exception."""
+        async def mock_batch_quotes(symbols):
+            raise Exception("Network timeout")
+
+        mock_service.batch_get_quotes = mock_batch_quotes
+
+        response = client.post(
+            "/api/v1/quote/batch",
+            json={"symbols": ["AAPL"]},
+        )
+
+        assert response.status_code == 500
+        data = response.json()
+        assert "Network timeout" in data["detail"]
+
+
+class TestBatchServiceMethods:
+    """Tests for the batch methods in Yahoo Finance service."""
+
+    @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.yf")
+    async def test_batch_search_by_isins_success(self, mock_yf):
+        """Test batch search service method with successful results."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        # Mock Search result
+        mock_search = MagicMock()
+        mock_search.quotes = [{"symbol": "AAPL", "shortname": "Apple Inc"}]
+        mock_yf.Search.return_value = mock_search
+
+        # Mock Ticker info
+        mock_ticker = MagicMock()
+        mock_ticker.info = {
+            "quoteType": "EQUITY",
+            "longName": "Apple Inc.",
+            "currency": "USD",
+            "exchange": "NASDAQ",
+        }
+        mock_yf.Ticker.return_value = mock_ticker
+
+        service = YahooFinanceService()
+        results, errors = await service.batch_search_by_isins(["US0378331005"])
+
+        assert len(results) == 1
+        assert len(errors) == 0
+        assert results[0].isin == "US0378331005"
+
+    @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.yf")
+    async def test_batch_search_by_isins_partial_failure(self, mock_yf):
+        """Test batch search service method with partial failures."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        # Mock Search to return results for first, empty for second
+        def search_side_effect(isin):
+            mock = MagicMock()
+            if isin == "US0378331005":
+                mock.quotes = [{"symbol": "AAPL"}]
+            else:
+                mock.quotes = []
+            return mock
+
+        mock_yf.Search.side_effect = search_side_effect
+
+        # Mock Ticker
+        mock_ticker = MagicMock()
+        mock_ticker.info = {
+            "quoteType": "EQUITY",
+            "longName": "Apple Inc.",
+            "currency": "USD",
+            "exchange": "NASDAQ",
+        }
+        mock_yf.Ticker.return_value = mock_ticker
+
+        service = YahooFinanceService()
+        results, errors = await service.batch_search_by_isins(
+            ["US0378331005", "INVALID"]
+        )
+
+        assert len(results) == 1
+        assert len(errors) == 1
+        assert errors[0][0] == "INVALID"
+
+    @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.yf")
+    async def test_batch_get_quotes_success(self, mock_yf):
+        """Test batch quote service method with successful results."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        mock_ticker = MagicMock()
+        mock_fast_info = MagicMock()
+        mock_fast_info.get.side_effect = lambda key, default=None: {
+            "lastPrice": 195.50,
+            "currency": "USD",
+        }.get(key, default)
+        mock_ticker.fast_info = mock_fast_info
+        mock_yf.Ticker.return_value = mock_ticker
+
+        service = YahooFinanceService()
+        results, errors = await service.batch_get_quotes(["AAPL"])
+
+        assert len(results) == 1
+        assert len(errors) == 0
+        assert results[0].symbol == "AAPL"
+
+    @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.yf")
+    async def test_batch_get_quotes_partial_failure(self, mock_yf):
+        """Test batch quote service method with partial failures."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        def ticker_side_effect(symbol):
+            mock_ticker = MagicMock()
+            if symbol == "AAPL":
+                mock_fast_info = MagicMock()
+                mock_fast_info.get.side_effect = lambda key, default=None: {
+                    "lastPrice": 195.50,
+                    "currency": "USD",
+                }.get(key, default)
+                mock_ticker.fast_info = mock_fast_info
+            else:
+                # For invalid symbol, fast_info fails
+                mock_fast_info = MagicMock()
+                mock_fast_info.get.side_effect = Exception("Not found")
+                mock_ticker.fast_info = mock_fast_info
+                mock_ticker.info = {}  # No price data
+            return mock_ticker
+
+        mock_yf.Ticker.side_effect = ticker_side_effect
+
+        service = YahooFinanceService()
+        results, errors = await service.batch_get_quotes(["AAPL", "INVALID"])
+
+        assert len(results) == 1
+        assert len(errors) == 1
+        assert errors[0][0] == "INVALID"
+
+    @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.yf")
+    async def test_batch_search_by_isins_exception_in_search(self, mock_yf):
+        """Test batch search handles exceptions thrown by search_by_isin."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        # Mock Search to raise an exception
+        mock_yf.Search.side_effect = Exception("Network timeout")
+
+        service = YahooFinanceService()
+        results, errors = await service.batch_search_by_isins(["US0378331005"])
+
+        # Exception should be caught and added to errors
+        assert len(results) == 0
+        assert len(errors) == 1
+        assert errors[0][0] == "US0378331005"
+        assert "Network timeout" in errors[0][1]
+
+    @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.yf")
+    async def test_batch_get_quotes_exception_in_get_quote(self, mock_yf):
+        """Test batch quotes handles exceptions thrown by get_quote."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        # Mock Ticker to raise an exception
+        mock_yf.Ticker.side_effect = Exception("Connection refused")
+
+        service = YahooFinanceService()
+        results, errors = await service.batch_get_quotes(["AAPL"])
+
+        # Exception should be caught and added to errors
+        assert len(results) == 0
+        assert len(errors) == 1
+        assert errors[0][0] == "AAPL"
+        assert "Connection refused" in errors[0][1]
+
+
+class TestBatchSchemas:
+    """Tests for batch Pydantic schemas."""
+
+    def test_batch_search_request_creation(self):
+        """Test BatchSearchRequest model creation."""
+        from src.models.schemas import BatchSearchRequest
+
+        request = BatchSearchRequest(isins=["US0378331005", "DE0007164600"])
+
+        assert len(request.isins) == 2
+        assert request.isins[0] == "US0378331005"
+
+    def test_batch_quote_request_creation(self):
+        """Test BatchQuoteRequest model creation."""
+        from src.models.schemas import BatchQuoteRequest
+
+        request = BatchQuoteRequest(symbols=["AAPL", "SAP"])
+
+        assert len(request.symbols) == 2
+        assert request.symbols[0] == "AAPL"
+
+    def test_batch_search_response_creation(self):
+        """Test BatchSearchResponse model creation."""
+        from src.models.schemas import (
+            BatchSearchResponse,
+            InstrumentResponse,
+            SearchErrorItem,
+        )
+
+        response = BatchSearchResponse(
+            results=[
+                InstrumentResponse(
+                    isin="US0378331005",
+                    symbol="AAPL",
+                    name="Apple Inc.",
+                    type="stock",
+                    currency="USD",
+                    exchange="NASDAQ",
+                )
+            ],
+            errors=[SearchErrorItem(isin="INVALID", error="Not found")],
+        )
+
+        assert len(response.results) == 1
+        assert len(response.errors) == 1
+
+    def test_batch_quote_response_creation(self):
+        """Test BatchQuoteResponse model creation."""
+        from src.models.schemas import (
+            BatchQuoteResponse,
+            QuoteErrorItem,
+            QuoteResponse,
+        )
+
+        response = BatchQuoteResponse(
+            results=[
+                QuoteResponse(
+                    symbol="AAPL",
+                    price="195.50",
+                    currency="USD",
+                    time="2024-12-26T10:00:00Z",
+                )
+            ],
+            errors=[QuoteErrorItem(symbol="INVALID", error="Not found")],
+        )
+
+        assert len(response.results) == 1
+        assert len(response.errors) == 1
+
+    def test_search_error_item_creation(self):
+        """Test SearchErrorItem model creation."""
+        from src.models.schemas import SearchErrorItem
+
+        error = SearchErrorItem(isin="INVALID", error="Not found")
+
+        assert error.isin == "INVALID"
+        assert error.error == "Not found"
+
+    def test_quote_error_item_creation(self):
+        """Test QuoteErrorItem model creation."""
+        from src.models.schemas import QuoteErrorItem
+
+        error = QuoteErrorItem(symbol="INVALID", error="No data")
+
+        assert error.symbol == "INVALID"
+        assert error.error == "No data"
