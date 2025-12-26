@@ -5,6 +5,7 @@ A lightweight Python microservice that provides stock market data via REST API, 
 ## Features
 
 - 🔍 **ISIN Search**: Search for financial instruments by ISIN code
+- 🛡️ **Robust Lookup**: Automatic fallback to multiple exchanges and alternative sources (justETF) for accurate results
 - 💰 **Real-time Quotes**: Get current stock prices for any symbol
 - 📦 **Batch Operations**: Search multiple ISINs or get multiple quotes in parallel
 - 🌐 **Global Coverage**: Supports US, UK, EU, Asian markets

@@ -136,8 +136,9 @@ class TestQuoteEndpoint:
 class TestYahooFinanceServiceSearch:
     """Tests for the Yahoo Finance service search_by_isin method."""
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_success(self, mock_yf):
+    def test_search_by_isin_success(self, mock_yf, mock_justetf):
         """Test successful ISIN search with mocked yfinance."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -146,13 +147,14 @@ class TestYahooFinanceServiceSearch:
         mock_search.quotes = [{"symbol": "AAPL", "shortname": "Apple Inc"}]
         mock_yf.Search.return_value = mock_search
 
-        # Mock Ticker info
+        # Mock Ticker info with price (required for valid result)
         mock_ticker = MagicMock()
         mock_ticker.info = {
             "quoteType": "EQUITY",
             "longName": "Apple Inc.",
             "currency": "USD",
             "exchange": "NASDAQ",
+            "regularMarketPrice": 195.50,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -167,8 +169,9 @@ class TestYahooFinanceServiceSearch:
         assert result.currency == "USD"
         assert result.exchange == "NASDAQ"
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_etf_type(self, mock_yf):
+    def test_search_by_isin_etf_type(self, mock_yf, mock_justetf):
         """Test ISIN search for ETF type."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -182,6 +185,7 @@ class TestYahooFinanceServiceSearch:
             "longName": "Vanguard S&P 500 ETF",
             "currency": "USD",
             "exchange": "NYSE ARCA",
+            "regularMarketPrice": 450.00,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -191,36 +195,45 @@ class TestYahooFinanceServiceSearch:
         assert result is not None
         assert result.type == "etf"
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_no_results(self, mock_yf):
-        """Test ISIN search with no results."""
+    def test_search_by_isin_no_results(self, mock_yf, mock_justetf):
+        """Test ISIN search with no results falls back to justETF."""
         from src.services.yahoo_finance import YahooFinanceService
 
         mock_search = MagicMock()
         mock_search.quotes = []
         mock_yf.Search.return_value = mock_search
 
+        # justETF also returns None
+        mock_justetf.search_by_isin.return_value = None
+
         service = YahooFinanceService()
         result = service.search_by_isin("INVALID_ISIN")
 
         assert result is None
+        mock_justetf.search_by_isin.assert_called_once_with("INVALID_ISIN")
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_no_symbol_in_quote(self, mock_yf):
-        """Test ISIN search when quote has no symbol."""
+    def test_search_by_isin_no_symbol_in_quote(self, mock_yf, mock_justetf):
+        """Test ISIN search when quote has no symbol falls back to justETF."""
         from src.services.yahoo_finance import YahooFinanceService
 
         mock_search = MagicMock()
         mock_search.quotes = [{"shortname": "Test"}]  # No symbol
         mock_yf.Search.return_value = mock_search
 
+        mock_justetf.search_by_isin.return_value = None
+
         service = YahooFinanceService()
         result = service.search_by_isin("US0378331005")
 
         assert result is None
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_uses_shortname_fallback(self, mock_yf):
+    def test_search_by_isin_uses_shortname_fallback(self, mock_yf, mock_justetf):
         """Test ISIN search uses shortName as fallback for name."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -234,6 +247,7 @@ class TestYahooFinanceServiceSearch:
             "shortName": "Test Co",  # No longName
             "currency": "EUR",
             "exchange": "",
+            "regularMarketPrice": 100.00,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -243,8 +257,9 @@ class TestYahooFinanceServiceSearch:
         assert result is not None
         assert result.name == "Test Co"
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_uses_quote_shortname_fallback(self, mock_yf):
+    def test_search_by_isin_uses_quote_shortname_fallback(self, mock_yf, mock_justetf):
         """Test ISIN search uses quote shortname when info has no name."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -256,6 +271,7 @@ class TestYahooFinanceServiceSearch:
         mock_ticker.info = {
             "quoteType": "EQUITY",
             "currency": "GBP",
+            "regularMarketPrice": 50.00,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -265,8 +281,9 @@ class TestYahooFinanceServiceSearch:
         assert result is not None
         assert result.name == "Fallback Name"
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_symbol_fallback_for_name(self, mock_yf):
+    def test_search_by_isin_symbol_fallback_for_name(self, mock_yf, mock_justetf):
         """Test ISIN search uses symbol when no name available."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -278,6 +295,7 @@ class TestYahooFinanceServiceSearch:
         mock_ticker.info = {
             "quoteType": "EQUITY",
             "currency": "USD",
+            "regularMarketPrice": 25.00,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -287,8 +305,9 @@ class TestYahooFinanceServiceSearch:
         assert result is not None
         assert result.name == "NONAME"
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_extract_exchange_from_symbol(self, mock_yf):
+    def test_search_by_isin_extract_exchange_from_symbol(self, mock_yf, mock_justetf):
         """Test ISIN search extracts exchange from symbol suffix."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -302,6 +321,7 @@ class TestYahooFinanceServiceSearch:
             "longName": "Rolls-Royce",
             "currency": "GBP",
             "exchange": "",  # Empty exchange
+            "regularMarketPrice": 5.50,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -311,8 +331,9 @@ class TestYahooFinanceServiceSearch:
         assert result is not None
         assert result.exchange == "London Stock Exchange"
 
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    def test_search_by_isin_default_exchange_for_us_stock(self, mock_yf):
+    def test_search_by_isin_default_exchange_for_us_stock(self, mock_yf, mock_justetf):
         """Test ISIN search defaults to NYSE/NASDAQ for US stocks."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -326,6 +347,7 @@ class TestYahooFinanceServiceSearch:
             "longName": "Apple",
             "currency": "USD",
             "exchange": "",
+            "regularMarketPrice": 195.00,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -863,8 +885,9 @@ class TestBatchServiceMethods:
     """Tests for the batch methods in Yahoo Finance service."""
 
     @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    async def test_batch_search_by_isins_success(self, mock_yf):
+    async def test_batch_search_by_isins_success(self, mock_yf, mock_justetf):
         """Test batch search service method with successful results."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -873,13 +896,14 @@ class TestBatchServiceMethods:
         mock_search.quotes = [{"symbol": "AAPL", "shortname": "Apple Inc"}]
         mock_yf.Search.return_value = mock_search
 
-        # Mock Ticker info
+        # Mock Ticker info with price
         mock_ticker = MagicMock()
         mock_ticker.info = {
             "quoteType": "EQUITY",
             "longName": "Apple Inc.",
             "currency": "USD",
             "exchange": "NASDAQ",
+            "regularMarketPrice": 195.50,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
@@ -891,8 +915,9 @@ class TestBatchServiceMethods:
         assert results[0].isin == "US0378331005"
 
     @pytest.mark.asyncio
+    @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
-    async def test_batch_search_by_isins_partial_failure(self, mock_yf):
+    async def test_batch_search_by_isins_partial_failure(self, mock_yf, mock_justetf):
         """Test batch search service method with partial failures."""
         from src.services.yahoo_finance import YahooFinanceService
 
@@ -906,19 +931,23 @@ class TestBatchServiceMethods:
             return mock
 
         mock_yf.Search.side_effect = search_side_effect
+        mock_justetf.search_by_isin.return_value = None
 
-        # Mock Ticker
+        # Mock Ticker with price
         mock_ticker = MagicMock()
         mock_ticker.info = {
             "quoteType": "EQUITY",
             "longName": "Apple Inc.",
             "currency": "USD",
             "exchange": "NASDAQ",
+            "regularMarketPrice": 195.50,
         }
         mock_yf.Ticker.return_value = mock_ticker
 
         service = YahooFinanceService()
-        results, errors = await service.batch_search_by_isins(["US0378331005", "INVALID"])
+        results, errors = await service.batch_search_by_isins(
+            ["US0378331005", "INVALID"]
+        )
 
         assert len(results) == 1
         assert len(errors) == 1
@@ -1101,3 +1130,310 @@ class TestBatchSchemas:
 
         assert error.symbol == "INVALID"
         assert error.error == "No data"
+
+
+class TestFallbackProviders:
+    """Tests for the fallback providers module."""
+
+    @patch("src.services.fallback_providers.requests")
+    def test_justetf_search_success(self, mock_requests):
+        """Test successful justETF search."""
+        from src.services.fallback_providers import JustETFProvider
+
+        # Mock response with ticker in HTML
+        mock_response = MagicMock()
+        mock_response.text = '''
+            <html>
+            <h1>Test ETF Name</h1>
+            <script>{"ticker": "NATO"}</script>
+            <div>XETRA</div>
+            <span>EUR</span>
+            </html>
+        '''
+        mock_response.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_response
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("IE000OJ5TQP4")
+
+        assert result is not None
+        assert result.symbol == "NATO.DE"
+        assert "Test ETF" in result.name
+
+    @patch("src.services.fallback_providers.requests")
+    def test_justetf_search_no_ticker(self, mock_requests):
+        """Test justETF search when no ticker found."""
+        from src.services.fallback_providers import JustETFProvider
+
+        mock_response = MagicMock()
+        mock_response.text = "<html><h1>Page</h1></html>"
+        mock_response.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_response
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("INVALID")
+
+        assert result is None
+
+    @patch("src.services.fallback_providers.requests")
+    def test_justetf_search_request_error(self, mock_requests):
+        """Test justETF search when request fails."""
+        from src.services.fallback_providers import JustETFProvider
+
+        mock_requests.get.side_effect = Exception("Connection error")
+        mock_requests.RequestException = Exception
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("IE000OJ5TQP4")
+
+        assert result is None
+
+    @patch("src.services.fallback_providers.requests")
+    def test_justetf_extract_exchange_london(self, mock_requests):
+        """Test justETF extracts London Stock Exchange."""
+        from src.services.fallback_providers import JustETFProvider
+
+        mock_response = MagicMock()
+        mock_response.text = '''
+            <html>
+            <h1>Test ETF</h1>
+            <script>{"ticker": "TEST"}</script>
+            <div>London Stock Exchange</div>
+            <span>GBP</span>
+            </html>
+        '''
+        mock_response.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_response
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("GB123456789")
+
+        assert result is not None
+        assert result.symbol == "TEST.L"
+        assert result.exchange == "London Stock Exchange"
+
+    @patch("src.services.fallback_providers.requests")
+    def test_justetf_extract_name_from_title(self, mock_requests):
+        """Test justETF extracts name from title when no h1."""
+        from src.services.fallback_providers import JustETFProvider
+
+        mock_response = MagicMock()
+        mock_response.text = '''
+            <html>
+            <title>My ETF | justETF</title>
+            <script>{"ticker": "TEST"}</script>
+            </html>
+        '''
+        mock_response.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_response
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("TEST123")
+
+        assert result is not None
+        assert result.name == "My ETF"
+
+    @patch("src.services.fallback_providers.requests")
+    def test_justetf_default_suffix_when_no_exchange(self, mock_requests):
+        """Test justETF uses default .L suffix when no exchange found."""
+        from src.services.fallback_providers import JustETFProvider
+
+        mock_response = MagicMock()
+        mock_response.text = '''
+            <html>
+            <h1>Unknown ETF</h1>
+            <script>{"ticker": "UNK"}</script>
+            </html>
+        '''
+        mock_response.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_response
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("XX123")
+
+        assert result is not None
+        assert result.symbol == "UNK.L"
+
+    @patch("src.services.fallback_providers.requests.get")
+    @patch("src.services.fallback_providers.BeautifulSoup")
+    def test_justetf_search_generic_exception(self, mock_bs, mock_get):
+        """Test justETF search when a generic exception occurs during parsing."""
+        from src.services.fallback_providers import JustETFProvider
+
+        mock_response = MagicMock()
+        mock_response.raise_for_status = MagicMock()
+        mock_get.return_value = mock_response
+
+        # Force BeautifulSoup to raise a generic Exception
+        mock_bs.side_effect = Exception("Parsing error")
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("IE000OJ5TQP4")
+
+        assert result is None
+
+    @patch("src.services.fallback_providers.requests")
+    def test_justetf_extract_name_none(self, mock_requests):
+        """Test justETF extraction when no name can be found (no h1 or title)."""
+        from src.services.fallback_providers import JustETFProvider
+
+        mock_response = MagicMock()
+        # HTML with no H1 and no TITLE
+        mock_response.text = '<html><body><script>{"ticker": "NATO"}</script></body></html>'
+        mock_response.raise_for_status = MagicMock()
+        mock_requests.get.return_value = mock_response
+
+        provider = JustETFProvider()
+        result = provider.search_by_isin("IE000OJ5TQP4")
+
+        assert result is not None
+        assert result.name == "NATO"  # Falls back to ticker
+
+
+
+class TestYahooFinanceFallbackLogic:
+    """Tests for Yahoo Finance fallback logic."""
+
+    @patch("src.services.yahoo_finance.justetf_provider")
+    @patch("src.services.yahoo_finance.yf")
+    def test_search_with_suffix_fallback(self, mock_yf, mock_justetf):
+        """Test search tries alternative suffixes when original fails."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        # Search returns a symbol with wrong suffix
+        mock_search = MagicMock()
+        mock_search.quotes = [{"symbol": "TEST.SG", "shortname": "Test"}]
+        mock_yf.Search.return_value = mock_search
+
+        # First call (TEST.SG) returns no price, second (TEST.DE) succeeds
+        def ticker_side_effect(symbol):
+            mock = MagicMock()
+            if symbol == "TEST.DE":
+                mock.info = {
+                    "quoteType": "EQUITY",
+                    "longName": "Test Stock",
+                    "currency": "EUR",
+                    "exchange": "XETRA",
+                    "regularMarketPrice": 100.00,
+                }
+            else:
+                mock.info = {}  # No price
+            return mock
+
+        mock_yf.Ticker.side_effect = ticker_side_effect
+
+        service = YahooFinanceService()
+        result = service.search_by_isin("DE123456789")
+
+        assert result is not None
+        assert result.symbol == "TEST.DE"
+
+    @patch("src.services.yahoo_finance.justetf_provider")
+    @patch("src.services.yahoo_finance.yf")
+    def test_search_falls_back_to_justetf(self, mock_yf, mock_justetf):
+        """Test search falls back to justETF when all suffixes fail."""
+        from src.services.fallback_providers import TickerInfo
+        from src.services.yahoo_finance import YahooFinanceService
+
+        # Search returns a symbol
+        mock_search = MagicMock()
+        mock_search.quotes = [{"symbol": "TEST.SG", "shortname": "Test"}]
+        mock_yf.Search.return_value = mock_search
+
+        # All Yahoo symbols fail (no price)
+        mock_ticker = MagicMock()
+        mock_ticker.info = {}
+        mock_yf.Ticker.return_value = mock_ticker
+
+        # justETF returns valid data
+        mock_justetf.search_by_isin.return_value = TickerInfo(
+            symbol="TEST.L",
+            name="Test ETF",
+            exchange="London",
+            currency="GBP",
+        )
+
+        service = YahooFinanceService()
+        result = service.search_by_isin("GB123456789")
+
+        assert result is not None
+        # Since Yahoo has no price, returns justETF data directly
+        assert result.symbol == "TEST.L"
+        assert result.name == "Test ETF"
+
+    @patch("src.services.yahoo_finance.justetf_provider")
+    @patch("src.services.yahoo_finance.yf")
+    def test_justetf_fallback_verified_by_yahoo(self, mock_yf, mock_justetf):
+        """Test justETF result is verified by Yahoo Finance."""
+        from src.services.fallback_providers import TickerInfo
+        from src.services.yahoo_finance import YahooFinanceService
+
+        # Empty search results
+        mock_search = MagicMock()
+        mock_search.quotes = []
+        mock_yf.Search.return_value = mock_search
+
+        # justETF returns valid data
+        mock_justetf.search_by_isin.return_value = TickerInfo(
+            symbol="NATO.L",
+            name="Defence ETF",
+            exchange="London",
+            currency="USD",
+        )
+
+        # Yahoo confirms the symbol
+        mock_ticker = MagicMock()
+        mock_ticker.info = {
+            "quoteType": "ETF",
+            "longName": "HANetf Defence ETF",
+            "currency": "USD",
+            "exchange": "LSE",
+            "regularMarketPrice": 18.50,
+        }
+        mock_yf.Ticker.return_value = mock_ticker
+
+        service = YahooFinanceService()
+        result = service.search_by_isin("IE000OJ5TQP4")
+
+        assert result is not None
+        assert result.symbol == "NATO.L"
+        assert result.type == "etf"
+
+    @patch("src.services.yahoo_finance.justetf_provider")
+    @patch("src.services.yahoo_finance.yf")
+    def test_try_get_instrument_info_handles_exception(self, mock_yf, mock_justetf):
+        """Test _try_get_instrument_info handles exceptions gracefully."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        mock_search = MagicMock()
+        mock_search.quotes = [{"symbol": "FAIL"}]
+        mock_yf.Search.return_value = mock_search
+
+        # Ticker raises exception
+        mock_yf.Ticker.side_effect = Exception("API error")
+        mock_justetf.search_by_isin.return_value = None
+
+        service = YahooFinanceService()
+        result = service.search_by_isin("TEST123")
+
+        # Should return None after all fallbacks fail
+        assert result is None
+
+    @patch("src.services.yahoo_finance.justetf_provider")
+    @patch("src.services.yahoo_finance.yf")
+    def test_justetf_fallback_exception_handled(self, mock_yf, mock_justetf):
+        """Test justETF fallback handles exceptions."""
+        from src.services.yahoo_finance import YahooFinanceService
+
+        mock_search = MagicMock()
+        mock_search.quotes = []
+        mock_yf.Search.return_value = mock_search
+
+        # justETF throws exception
+        mock_justetf.search_by_isin.side_effect = Exception("Network error")
+
+        service = YahooFinanceService()
+        result = service.search_by_isin("TEST123")
+
+        assert result is None
+

@@ -5,6 +5,10 @@ uvicorn[standard]>=0.40.0
 # Yahoo Finance
 yfinance>=1.0
 
+# HTTP client and HTML parsing (for fallback providers)
+requests>=2.32.0
+beautifulsoup4>=4.13.0
+
 # Data validation
 pydantic>=2.12.5
 pydantic-settings>=2.12.0
@@ -12,6 +16,7 @@ pydantic-settings>=2.12.0
 # Testing
 pytest>=9.0.2
 pytest-asyncio>=1.3.0
+pytest-cov>=7.0.0
 httpx>=0.28.1
 
 # Linting (dev)
