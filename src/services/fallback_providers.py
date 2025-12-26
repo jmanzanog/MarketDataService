@@ -127,7 +127,8 @@ class JustETFProvider:
         """Extract exchange and determine Yahoo suffix."""
         # Look for exchange mentions in the page
         for exchange_name, suffix in self.EXCHANGE_TO_SUFFIX.items():
-            if soup.find(string=lambda t: t and exchange_name in t):
+            # Fix B023: Bind the loop variable exchange_name to the lambda
+            if soup.find(string=lambda t, en=exchange_name: t and en in t):
                 return exchange_name, suffix
 
         # Default to London for European ETFs (most liquid)
