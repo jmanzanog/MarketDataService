@@ -79,7 +79,7 @@ jobs:
           account: user
           token: ${{ secrets.GITHUB_TOKEN }}
           image-names: market-data-service
+          image-tags: '!latest'
           cut-off: 14d
           keep-n-most-recent: 5
-          skip-tags: latest
 
