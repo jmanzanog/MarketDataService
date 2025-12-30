@@ -1136,7 +1136,6 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.justetf_provider.session")
     def test_justetf_search_success(self, mock_session):
         """Test successful justETF search."""
-        from src.services.fallback_providers import JustETFProvider
 
         # Mock response with ticker in HTML
         mock_response = MagicMock()
@@ -1146,6 +1145,7 @@ class TestFallbackProviders:
         mock_session.get.return_value = mock_response
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("US1234567891")
 
         assert result is not None
@@ -1155,7 +1155,6 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.justetf_provider.session")
     def test_justetf_search_no_ticker(self, mock_session):
         """Test justETF search when no ticker found."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1164,6 +1163,7 @@ class TestFallbackProviders:
         mock_session.get.return_value = mock_response
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("US1234567891")
 
         assert result is None
@@ -1171,11 +1171,11 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.justetf_provider.session")
     def test_justetf_search_request_error(self, mock_session):
         """Test justETF search when request fails."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_session.get.side_effect = Exception("Connection error")
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("US1234567891")
 
         assert result is None
@@ -1183,7 +1183,6 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.justetf_provider.session")
     def test_justetf_extract_exchange_london(self, mock_session):
         """Test justETF extracts London Stock Exchange."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1192,6 +1191,7 @@ class TestFallbackProviders:
         mock_session.get.return_value = mock_response
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("GB1234567890")
 
         assert result is not None
@@ -1201,15 +1201,17 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.justetf_provider.session")
     def test_justetf_extract_name_from_title(self, mock_session):
         """Test justETF extracts name from title when no h1."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
         mock_response.status_code = 200
-        mock_response.text = '<html><title>My ETF | justETF</title><script>{"ticker": "TEST"}</script></html>'
+        mock_response.text = (
+            '<html><title>My ETF | justETF</title><script>{"ticker": "TEST"}</script></html>'
+        )
         mock_response.raise_for_status = MagicMock()
         mock_session.get.return_value = mock_response
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("IE00BK5BQT80")
 
         assert result is not None
@@ -1218,7 +1220,6 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.justetf_provider.session")
     def test_justetf_default_suffix_when_no_exchange(self, mock_session):
         """Test justETF uses default .L suffix when no exchange found."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1227,6 +1228,7 @@ class TestFallbackProviders:
         mock_session.get.return_value = mock_response
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("IE00BK5BQT80")
 
         assert result is not None
@@ -1236,7 +1238,6 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.BeautifulSoup")
     def test_justetf_search_generic_exception(self, mock_bs, mock_get):
         """Test justETF search when a generic exception occurs during parsing."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1247,6 +1248,7 @@ class TestFallbackProviders:
         mock_bs.side_effect = Exception("Parsing error")
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("IE00BK5BQT80")
 
         assert result is None
@@ -1254,7 +1256,6 @@ class TestFallbackProviders:
     @patch("src.services.fallback_providers.justetf_provider.session")
     def test_justetf_extract_name_none(self, mock_session):
         """Test justETF extraction when no name can be found (no h1 or title)."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -1264,6 +1265,7 @@ class TestFallbackProviders:
         mock_session.get.return_value = mock_response
 
         from src.services.fallback_providers import justetf_provider as provider
+
         result = provider.search_by_isin("US1234567891")
 
         assert result is not None

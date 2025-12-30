@@ -50,9 +50,11 @@ def docker_network() -> Generator[Network, None, None]:
 @pytest.fixture(scope="module")
 def redis_container(docker_network: Network) -> Generator[RedisContainer, None, None]:
     """Start a Redis container for caching tests."""
-    with RedisContainer("redis:7-alpine").with_network(docker_network).with_network_aliases(
-        "redis"
-    ) as redis:
+    with (
+        RedisContainer("redis:7-alpine")
+        .with_network(docker_network)
+        .with_network_aliases("redis") as redis
+    ):
         yield redis
 
 
@@ -145,12 +147,10 @@ class TestContainerMetadataCaching:
         print(f"  >>> Speedup: {duration_first / duration_second:.1f}x faster!")
 
         # Verification: Cached request should be very fast (< 200ms usually, let's be safe with 500ms)
-        assert (
-            duration_second < 0.5
-        ), f"Cached request too slow: {duration_second:.2f}s (expected cache hit)"
-        assert (
-            duration_second < duration_first
-        ), "Cached request should be faster than uncached one"
+        assert duration_second < 0.5, (
+            f"Cached request too slow: {duration_second:.2f}s (expected cache hit)"
+        )
+        assert duration_second < duration_first, "Cached request should be faster than uncached one"
 
         # Verify data is identical
         assert res1.json() == res2.json()

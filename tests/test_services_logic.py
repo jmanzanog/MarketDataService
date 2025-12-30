@@ -1,11 +1,10 @@
 """
-Unit tests for internal service logic, including ISIN validation, 
+Unit tests for internal service logic, including ISIN validation,
 caching, and circuit breaker mechanisms.
 """
 
-import json
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 import responses
@@ -44,9 +43,7 @@ class TestMetadataCache:
         return cache
 
     def test_set_and_get_cache(self, mock_cache):
-        info = TickerInfo(
-            symbol="AAPL", name="Apple Inc.", exchange="NASDAQ", currency="USD"
-        )
+        info = TickerInfo(symbol="AAPL", name="Apple Inc.", exchange="NASDAQ", currency="USD")
         mock_cache.set("US0378331005", info)
 
         cached = mock_cache.get("US0378331005")
@@ -110,7 +107,7 @@ class TestJustETFParsing:
         soup = BeautifulSoup(html, "html.parser")
         assert provider._extract_ticker(soup, html) == "VWRA"
 
-        html2 = '<span>Ticker: NATO</span>'
+        html2 = "<span>Ticker: NATO</span>"
         soup2 = BeautifulSoup(html2, "html.parser")
         assert provider._extract_ticker(soup2, html2) == "NATO"
 
@@ -161,9 +158,9 @@ class TestYahooFinanceServiceExtensions:
     def test_search_by_isin_calls_justetf_on_no_results(self, mock_fallback, mock_yf_search):
         mock_yf_search.return_value.quotes = []
         isin = "US0378331005"
-        
+
         yahoo_finance_service.search_by_isin(isin)
-        
+
         mock_fallback.assert_called_once_with(isin)
 
     @patch("src.services.yahoo_finance.justetf_provider.search_by_isin")
@@ -175,9 +172,9 @@ class TestYahooFinanceServiceExtensions:
             symbol="TEST", name="Test Name", exchange="Ex", currency="USD"
         )
         mock_info.return_value = None  # All Yahoo ticker attempts failed
-        
+
         isin = "US1234567890"
         yahoo_finance_service._try_justetf_fallback(isin)
-        
+
         # Should have tried name search as last resort
         mock_name_search.assert_called_once_with(isin, "Test Name")

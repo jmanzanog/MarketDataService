@@ -329,9 +329,11 @@ class YahooFinanceService:
             # (only if we didn't find any working symbol)
             # IMPORTANT: We only return this if we are SURE it's better than nothing,
             # but we logs it clearly as it might not have quotes.
-            logger.warning(f"Could not find any working Yahoo symbol for ticker {base_ticker} on {isin}.")
-            
-            # Final safety check: if we are here, we try one last name search 
+            logger.warning(
+                f"Could not find any working Yahoo symbol for ticker {base_ticker} on {isin}."
+            )
+
+            # Final safety check: if we are here, we try one last name search
             # with the name we got from JustETF before giving up
             result = self._try_search_by_name_fallback(isin, ticker_info.name)
             if result:
