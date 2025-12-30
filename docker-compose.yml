@@ -4,9 +4,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - HOST=0.0.0.0 # Bind to all interfaces in container
+      - HOST=0.0.0.0
       - LOG_LEVEL=INFO
       - DEBUG=false
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    depends_on:
+      - redis
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
@@ -14,3 +18,14 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

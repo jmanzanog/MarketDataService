@@ -18,5 +18,12 @@ class Settings(BaseSettings):
     port: int = 8000
     log_level: str = "INFO"
 
+    # Redis configuration
+    redis_host: str = "localhost"
+    redis_port: int = 6379
+    redis_db: int = 0
+    # Cache duration for metadata (1 month in seconds, as metadata rarely changes)
+    cache_expire_seconds: int = 60 * 60 * 24 * 30
+
 
 settings = Settings()
