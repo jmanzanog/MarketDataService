@@ -4,6 +4,7 @@ python_files = "test_*.py"
 python_functions = "test_*"
 markers = [
     "integration: marks tests as integration tests (require internet)",
+    "container: marks tests that require Docker container (slow, require Docker)",
 ]
 asyncio_mode = "auto"
 
