@@ -11,7 +11,7 @@ Requires Docker to be running.
 """
 
 import time
-from typing import Generator
+from collections.abc import Generator
 
 import pytest
 import requests
@@ -42,7 +42,7 @@ TEST_SYMBOLS = ["AAPL", "MSFT", "RR.L"]
 def docker_container() -> Generator[DockerContainer, None, None]:
     """
     Build and start the MarketDataService container.
-    
+
     This fixture:
     - Builds the Docker image from the project Dockerfile
     - Starts the container exposing port 8000
@@ -62,7 +62,7 @@ def docker_container() -> Generator[DockerContainer, None, None]:
     container = DockerContainer(image="marketdataservice:test")
     container.with_exposed_ports(8000)
     container.with_env("LOG_LEVEL", "INFO")
-    
+
     container.start()
 
     # Wait for the application to be ready (health check)
@@ -94,9 +94,9 @@ class TestContainerHealthEndpoints:
     def test_health_endpoint(self, docker_container: DockerContainer):
         """Test /health returns healthy status."""
         base_url = get_base_url(docker_container)
-        
+
         response = requests.get(f"{base_url}/health", timeout=10)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "healthy"
@@ -105,9 +105,9 @@ class TestContainerHealthEndpoints:
     def test_root_endpoint(self, docker_container: DockerContainer):
         """Test / returns API information."""
         base_url = get_base_url(docker_container)
-        
+
         response = requests.get(f"{base_url}/", timeout=10)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert "name" in data
@@ -118,9 +118,9 @@ class TestContainerHealthEndpoints:
     def test_docs_endpoint_available(self, docker_container: DockerContainer):
         """Test /docs (Swagger UI) is accessible."""
         base_url = get_base_url(docker_container)
-        
+
         response = requests.get(f"{base_url}/docs", timeout=10)
-        
+
         assert response.status_code == 200
         assert "swagger" in response.text.lower() or "openapi" in response.text.lower()
 
@@ -133,9 +133,9 @@ class TestContainerSearchEndpoints:
         """Test GET /api/v1/search/{isin} with a valid ISIN."""
         base_url = get_base_url(docker_container)
         isin = "US0090661010"  # Airbnb - usually reliable
-        
+
         response = requests.get(f"{base_url}/api/v1/search/{isin}", timeout=30)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["isin"] == isin
@@ -147,19 +147,21 @@ class TestContainerSearchEndpoints:
     def test_search_single_isin_not_found_handling(self, docker_container: DockerContainer):
         """
         Test GET /api/v1/search/{isin} with a non-existent ISIN.
-        The service is extremely resilient, so it might return 404 or a 200 with 
+        The service is extremely resilient, so it might return 404 or a 200 with
         fallback info. We verify it handles the request without crashing.
         """
         base_url = get_base_url(docker_container)
         isin = "US0000000000"
-        
+
         response = requests.get(f"{base_url}/api/v1/search/{isin}", timeout=30)
-        
+
         assert response.status_code in [200, 404, 500]
         if response.status_code == 200:
             data = response.json()
             assert data["isin"] == isin
-            print(f"\n  Note: Service found fallback info for non-existent ISIN: {data.get('symbol')}")
+            print(
+                f"\n  Note: Service found fallback info for non-existent ISIN: {data.get('symbol')}"
+            )
 
     def test_search_batch_all_portfolio_isins(self, docker_container: DockerContainer):
         """
@@ -168,7 +170,7 @@ class TestContainerSearchEndpoints:
         """
         base_url = get_base_url(docker_container)
         payload = {"isins": TEST_ISINS}
-        
+
         start_time = time.time()
         response = requests.post(
             f"{base_url}/api/v1/search/batch",
@@ -176,26 +178,26 @@ class TestContainerSearchEndpoints:
             timeout=60,
         )
         duration = time.time() - start_time
-        
+
         print(f"\n  Batch search duration: {duration:.2f}s")
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         results = data.get("results", [])
         errors = data.get("errors", [])
-        
+
         print(f"  Successful: {len(results)}/{len(TEST_ISINS)}")
         if errors:
             print("  Errors:")
             for err in errors:
                 print(f"    - {err['isin']}: {err['error']}")
-        
+
         # We expect most or all to succeed
         assert len(results) >= len(TEST_ISINS) - 2, (
             f"Too many failures: {len(errors)} out of {len(TEST_ISINS)}"
         )
-        
+
         # Verify each result has required fields
         for result in results:
             assert "isin" in result
@@ -207,13 +209,13 @@ class TestContainerSearchEndpoints:
         """Test POST /api/v1/search/batch with empty list."""
         base_url = get_base_url(docker_container)
         payload = {"isins": []}
-        
+
         response = requests.post(
             f"{base_url}/api/v1/search/batch",
             json=payload,
             timeout=10,
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["results"] == []
@@ -227,9 +229,9 @@ class TestContainerQuoteEndpoints:
         """Test GET /api/v1/quote/{symbol} with a valid symbol."""
         base_url = get_base_url(docker_container)
         symbol = "AAPL"
-        
+
         response = requests.get(f"{base_url}/api/v1/quote/{symbol}", timeout=30)
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["symbol"] == symbol
@@ -242,9 +244,9 @@ class TestContainerQuoteEndpoints:
         """Test GET /api/v1/quote/{symbol} with invalid symbol returns 404."""
         base_url = get_base_url(docker_container)
         symbol = "NOTAREALSYMBOL123"
-        
+
         response = requests.get(f"{base_url}/api/v1/quote/{symbol}", timeout=30)
-        
+
         # Yahoo Finance might return 404 or empty data
         assert response.status_code in [404, 500]
 
@@ -252,7 +254,7 @@ class TestContainerQuoteEndpoints:
         """Test POST /api/v1/quote/batch with multiple symbols."""
         base_url = get_base_url(docker_container)
         payload = {"symbols": TEST_SYMBOLS}
-        
+
         start_time = time.time()
         response = requests.post(
             f"{base_url}/api/v1/quote/batch",
@@ -260,19 +262,18 @@ class TestContainerQuoteEndpoints:
             timeout=60,
         )
         duration = time.time() - start_time
-        
+
         print(f"\n  Batch quote duration: {duration:.2f}s")
-        
+
         assert response.status_code == 200
         data = response.json()
-        
+
         results = data.get("results", [])
-        errors = data.get("errors", [])
-        
+
         print(f"  Successful: {len(results)}/{len(TEST_SYMBOLS)}")
         for result in results:
             print(f"    {result['symbol']}: {result['price']} {result['currency']}")
-        
+
         # At least some should succeed
         assert len(results) > 0
 
@@ -280,13 +281,13 @@ class TestContainerQuoteEndpoints:
         """Test POST /api/v1/quote/batch with empty list."""
         base_url = get_base_url(docker_container)
         payload = {"symbols": []}
-        
+
         response = requests.post(
             f"{base_url}/api/v1/quote/batch",
             json=payload,
             timeout=10,
         )
-        
+
         assert response.status_code == 200
         data = response.json()
         assert data["results"] == []
@@ -307,7 +308,7 @@ class TestContainerEndToEndWorkflow:
         """
         base_url = get_base_url(docker_container)
         isin = "US8740391003"  # Taiwan Semi
-        
+
         # Step 1: Search for the instrument
         search_response = requests.get(
             f"{base_url}/api/v1/search/{isin}",
@@ -316,9 +317,9 @@ class TestContainerEndToEndWorkflow:
         assert search_response.status_code == 200
         instrument = search_response.json()
         symbol = instrument["symbol"]
-        
+
         print(f"\n  Step 1: Found {isin} -> {symbol} ({instrument['name']})")
-        
+
         # Step 2: Get quote for the symbol
         quote_response = requests.get(
             f"{base_url}/api/v1/quote/{symbol}",
@@ -326,9 +327,9 @@ class TestContainerEndToEndWorkflow:
         )
         assert quote_response.status_code == 200
         quote = quote_response.json()
-        
+
         print(f"  Step 2: Quote {symbol} = {quote['price']} {quote['currency']}")
-        
+
         # Verify data consistency
         assert quote["symbol"] == symbol
         assert float(quote["price"]) > 0
@@ -341,7 +342,7 @@ class TestContainerEndToEndWorkflow:
         """
         base_url = get_base_url(docker_container)
         test_isins = TEST_ISINS[:5]  # Use first 5 for speed
-        
+
         # Step 1: Batch search
         search_response = requests.post(
             f"{base_url}/api/v1/search/batch",
@@ -350,13 +351,13 @@ class TestContainerEndToEndWorkflow:
         )
         assert search_response.status_code == 200
         search_data = search_response.json()
-        
+
         symbols = [r["symbol"] for r in search_data["results"]]
         print(f"\n  Step 1: Found {len(symbols)} symbols from {len(test_isins)} ISINs")
-        
+
         if not symbols:
             pytest.skip("No symbols found to quote")
-        
+
         # Step 2: Batch quote
         quote_response = requests.post(
             f"{base_url}/api/v1/quote/batch",
@@ -365,7 +366,7 @@ class TestContainerEndToEndWorkflow:
         )
         assert quote_response.status_code == 200
         quote_data = quote_response.json()
-        
+
         print(f"  Step 2: Got {len(quote_data['results'])} quotes")
         for q in quote_data["results"]:
             print(f"    {q['symbol']}: {q['price']} {q['currency']}")
@@ -378,19 +379,19 @@ class TestContainerPerformance:
     def test_health_check_response_time(self, docker_container: DockerContainer):
         """Health check should respond quickly (< 500ms)."""
         base_url = get_base_url(docker_container)
-        
+
         start_time = time.time()
         response = requests.get(f"{base_url}/health", timeout=5)
         duration = time.time() - start_time
-        
+
         assert response.status_code == 200
         assert duration < 0.5, f"Health check too slow: {duration:.3f}s"
-        print(f"\n  Health check: {duration*1000:.1f}ms")
+        print(f"\n  Health check: {duration * 1000:.1f}ms")
 
     def test_batch_search_completes_in_reasonable_time(self, docker_container: DockerContainer):
         """Batch search should complete within 60 seconds for all ISINs."""
         base_url = get_base_url(docker_container)
-        
+
         start_time = time.time()
         response = requests.post(
             f"{base_url}/api/v1/search/batch",
@@ -398,7 +399,7 @@ class TestContainerPerformance:
             timeout=90,
         )
         duration = time.time() - start_time
-        
+
         assert response.status_code == 200
         assert duration < 60, f"Batch search too slow: {duration:.1f}s"
         print(f"\n  Batch search ({len(TEST_ISINS)} ISINs): {duration:.1f}s")
