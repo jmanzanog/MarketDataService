@@ -6,11 +6,13 @@ A lightweight Python microservice that provides stock market data via REST API, 
 
 - 🔍 **ISIN Search**: Search for financial instruments by ISIN code
 - 🛡️ **Robust Lookup**: Automatic fallback to multiple exchanges and alternative sources (justETF) for accurate results
+- ⚡ **Redis Caching**: High-performance metadata caching to reduce external API calls and latency
+- 🔌 **Circuit Breaker**: Resilient web scraping with automatic lockout on 403 errors to protect IP reputation
 - 💰 **Real-time Quotes**: Get current stock prices for any symbol
 - 📦 **Batch Operations**: Search multiple ISINs or get multiple quotes in parallel
 - 🌐 **Global Coverage**: Supports US, UK, EU, Asian markets
 - 🚀 **Fast**: Built with FastAPI for high performance
-- 🐳 **Docker Ready**: Production-ready containerization
+- 🐳 **Docker Ready**: Production-ready containerization with Redis support
 
 ## API Endpoints
 
@@ -165,6 +167,9 @@ Environment variables (see `.env.example`):
 | `HOST` | Service host | `0.0.0.0` |
 | `LOG_LEVEL` | Logging level | `INFO` |
 | `DEBUG` | Enable debug mode | `false` |
+| `REDIS_HOST` | Redis host for caching | `localhost` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `REDIS_DB` | Redis database number | `0` |
 
 ## Testing
 

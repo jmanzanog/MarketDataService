@@ -66,12 +66,12 @@ class TestSearchEndpoint:
         """Test ISIN search when instrument not found."""
         mock_service.search_by_isin.return_value = None
 
-        response = client.get("/api/v1/search/INVALID_ISIN")
+        response = client.get("/api/v1/search/US1234567891")
 
         assert response.status_code == 404
         data = response.json()
         assert "detail" in data
-        assert "INVALID_ISIN" in data["detail"]
+        assert "US1234567891" in data["detail"]
 
     @patch("src.routes.search.yahoo_finance_service")
     def test_search_by_isin_service_error(self, mock_service):
@@ -209,10 +209,10 @@ class TestYahooFinanceServiceSearch:
         mock_justetf.search_by_isin.return_value = None
 
         service = YahooFinanceService()
-        result = service.search_by_isin("INVALID_ISIN")
+        result = service.search_by_isin("US1234567891")
 
         assert result is None
-        mock_justetf.search_by_isin.assert_called_once_with("INVALID_ISIN")
+        mock_justetf.search_by_isin.assert_called_once_with("US1234567891")
 
     @patch("src.services.yahoo_finance.justetf_provider")
     @patch("src.services.yahoo_finance.yf")
@@ -252,7 +252,7 @@ class TestYahooFinanceServiceSearch:
         mock_yf.Ticker.return_value = mock_ticker
 
         service = YahooFinanceService()
-        result = service.search_by_isin("TEST_ISIN")
+        result = service.search_by_isin("US1234567895")
 
         assert result is not None
         assert result.name == "Test Co"
@@ -276,7 +276,7 @@ class TestYahooFinanceServiceSearch:
         mock_yf.Ticker.return_value = mock_ticker
 
         service = YahooFinanceService()
-        result = service.search_by_isin("TEST_ISIN")
+        result = service.search_by_isin("US1234567895")
 
         assert result is not None
         assert result.name == "Fallback Name"
@@ -300,7 +300,7 @@ class TestYahooFinanceServiceSearch:
         mock_yf.Ticker.return_value = mock_ticker
 
         service = YahooFinanceService()
-        result = service.search_by_isin("TEST_ISIN")
+        result = service.search_by_isin("US1234567895")
 
         assert result is not None
         assert result.name == "NONAME"
@@ -703,21 +703,21 @@ class TestBatchSearchEndpoint:
                         exchange="NASDAQ",
                     ),
                 ],
-                [("INVALID_ISIN", "No instrument found for ISIN")],
+                [("US1234567891", "No instrument found for ISIN")],
             )
 
         mock_service.batch_search_by_isins = mock_batch_search
 
         response = client.post(
             "/api/v1/search/batch",
-            json={"isins": ["US0378331005", "INVALID_ISIN"]},
+            json={"isins": ["US0378331005", "US1234567891"]},
         )
 
         assert response.status_code == 200
         data = response.json()
         assert len(data["results"]) == 1
         assert len(data["errors"]) == 1
-        assert data["errors"][0]["isin"] == "INVALID_ISIN"
+        assert data["errors"][0]["isin"] == "US1234567891"
         assert "No instrument found" in data["errors"][0]["error"]
 
     @patch("src.routes.search.yahoo_finance_service")
@@ -728,8 +728,8 @@ class TestBatchSearchEndpoint:
             return (
                 [],
                 [
-                    ("INVALID1", "No instrument found for ISIN"),
-                    ("INVALID2", "No instrument found for ISIN"),
+                    ("US1234567892", "No instrument found for ISIN"),
+                    ("US1234567893", "No instrument found for ISIN"),
                 ],
             )
 
@@ -737,7 +737,7 @@ class TestBatchSearchEndpoint:
 
         response = client.post(
             "/api/v1/search/batch",
-            json={"isins": ["INVALID1", "INVALID2"]},
+            json={"isins": ["US1234567892", "US1234567893"]},
         )
 
         assert response.status_code == 200
@@ -845,8 +845,8 @@ class TestBatchQuoteEndpoint:
             return (
                 [],
                 [
-                    ("INVALID1", "No quote data available"),
-                    ("INVALID2", "No quote data available"),
+                    ("US1234567892", "No quote data available"),
+                    ("US1234567893", "No quote data available"),
                 ],
             )
 
@@ -854,7 +854,7 @@ class TestBatchQuoteEndpoint:
 
         response = client.post(
             "/api/v1/quote/batch",
-            json={"symbols": ["INVALID1", "INVALID2"]},
+            json={"symbols": ["US1234567892", "US1234567893"]},
         )
 
         assert response.status_code == 200
@@ -1133,156 +1133,140 @@ class TestBatchSchemas:
 class TestFallbackProviders:
     """Tests for the fallback providers module."""
 
-    @patch("src.services.fallback_providers.requests")
-    def test_justetf_search_success(self, mock_requests):
+    @patch("src.services.fallback_providers.justetf_provider.session")
+    def test_justetf_search_success(self, mock_session):
         """Test successful justETF search."""
-        from src.services.fallback_providers import JustETFProvider
 
         # Mock response with ticker in HTML
         mock_response = MagicMock()
-        mock_response.text = """
-            <html>
-            <h1>Test ETF Name</h1>
-            <script>{"ticker": "NATO"}</script>
-            <div>XETRA</div>
-            <span>EUR</span>
-            </html>
-        """
+        mock_response.status_code = 200
+        mock_response.text = '<html><h1>Test ETF Name</h1><script>{"ticker": "NATO"}</script><div>XETRA</div><span>EUR</span></html>'
         mock_response.raise_for_status = MagicMock()
-        mock_requests.get.return_value = mock_response
+        mock_session.get.return_value = mock_response
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("IE000OJ5TQP4")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("US1234567891")
 
         assert result is not None
         assert result.symbol == "NATO.DE"
         assert "Test ETF" in result.name
 
-    @patch("src.services.fallback_providers.requests")
-    def test_justetf_search_no_ticker(self, mock_requests):
+    @patch("src.services.fallback_providers.justetf_provider.session")
+    def test_justetf_search_no_ticker(self, mock_session):
         """Test justETF search when no ticker found."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.text = "<html><h1>Page</h1></html>"
         mock_response.raise_for_status = MagicMock()
-        mock_requests.get.return_value = mock_response
+        mock_session.get.return_value = mock_response
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("INVALID")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("US1234567891")
 
         assert result is None
 
-    @patch("src.services.fallback_providers.requests")
-    def test_justetf_search_request_error(self, mock_requests):
+    @patch("src.services.fallback_providers.justetf_provider.session")
+    def test_justetf_search_request_error(self, mock_session):
         """Test justETF search when request fails."""
-        from src.services.fallback_providers import JustETFProvider
 
-        mock_requests.get.side_effect = Exception("Connection error")
-        mock_requests.RequestException = Exception
+        mock_session.get.side_effect = Exception("Connection error")
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("IE000OJ5TQP4")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("US1234567891")
 
         assert result is None
 
-    @patch("src.services.fallback_providers.requests")
-    def test_justetf_extract_exchange_london(self, mock_requests):
+    @patch("src.services.fallback_providers.justetf_provider.session")
+    def test_justetf_extract_exchange_london(self, mock_session):
         """Test justETF extracts London Stock Exchange."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
-        mock_response.text = """
-            <html>
-            <h1>Test ETF</h1>
-            <script>{"ticker": "TEST"}</script>
-            <div>London Stock Exchange</div>
-            <span>GBP</span>
-            </html>
-        """
+        mock_response.status_code = 200
+        mock_response.text = '<html><h1>Test ETF</h1><script>{"ticker": "TEST"}</script><div>London Stock Exchange</div><span>GBP</span></html>'
         mock_response.raise_for_status = MagicMock()
-        mock_requests.get.return_value = mock_response
+        mock_session.get.return_value = mock_response
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("GB123456789")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("GB1234567890")
 
         assert result is not None
         assert result.symbol == "TEST.L"
         assert result.exchange == "London Stock Exchange"
 
-    @patch("src.services.fallback_providers.requests")
-    def test_justetf_extract_name_from_title(self, mock_requests):
+    @patch("src.services.fallback_providers.justetf_provider.session")
+    def test_justetf_extract_name_from_title(self, mock_session):
         """Test justETF extracts name from title when no h1."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
-        mock_response.text = """
-            <html>
-            <title>My ETF | justETF</title>
-            <script>{"ticker": "TEST"}</script>
-            </html>
-        """
+        mock_response.status_code = 200
+        mock_response.text = (
+            '<html><title>My ETF | justETF</title><script>{"ticker": "TEST"}</script></html>'
+        )
         mock_response.raise_for_status = MagicMock()
-        mock_requests.get.return_value = mock_response
+        mock_session.get.return_value = mock_response
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("TEST123")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("IE00BK5BQT80")
 
         assert result is not None
         assert result.name == "My ETF"
 
-    @patch("src.services.fallback_providers.requests")
-    def test_justetf_default_suffix_when_no_exchange(self, mock_requests):
+    @patch("src.services.fallback_providers.justetf_provider.session")
+    def test_justetf_default_suffix_when_no_exchange(self, mock_session):
         """Test justETF uses default .L suffix when no exchange found."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
-        mock_response.text = """
-            <html>
-            <h1>Unknown ETF</h1>
-            <script>{"ticker": "UNK"}</script>
-            </html>
-        """
+        mock_response.status_code = 200
+        mock_response.text = '<html><h1>Unknown ETF</h1><script>{"ticker": "UNK"}</script></html>'
         mock_response.raise_for_status = MagicMock()
-        mock_requests.get.return_value = mock_response
+        mock_session.get.return_value = mock_response
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("XX123")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("IE00BK5BQT80")
 
         assert result is not None
         assert result.symbol == "UNK.L"
 
-    @patch("src.services.fallback_providers.requests.get")
+    @patch("src.services.fallback_providers.justetf_provider.session.get")
     @patch("src.services.fallback_providers.BeautifulSoup")
     def test_justetf_search_generic_exception(self, mock_bs, mock_get):
         """Test justETF search when a generic exception occurs during parsing."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         mock_response.raise_for_status = MagicMock()
         mock_get.return_value = mock_response
 
         # Force BeautifulSoup to raise a generic Exception
         mock_bs.side_effect = Exception("Parsing error")
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("IE000OJ5TQP4")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("IE00BK5BQT80")
 
         assert result is None
 
-    @patch("src.services.fallback_providers.requests")
-    def test_justetf_extract_name_none(self, mock_requests):
+    @patch("src.services.fallback_providers.justetf_provider.session")
+    def test_justetf_extract_name_none(self, mock_session):
         """Test justETF extraction when no name can be found (no h1 or title)."""
-        from src.services.fallback_providers import JustETFProvider
 
         mock_response = MagicMock()
+        mock_response.status_code = 200
         # HTML with no H1 and no TITLE
         mock_response.text = '<html><body><script>{"ticker": "NATO"}</script></body></html>'
         mock_response.raise_for_status = MagicMock()
-        mock_requests.get.return_value = mock_response
+        mock_session.get.return_value = mock_response
 
-        provider = JustETFProvider()
-        result = provider.search_by_isin("IE000OJ5TQP4")
+        from src.services.fallback_providers import justetf_provider as provider
+
+        result = provider.search_by_isin("US1234567891")
 
         assert result is not None
         assert result.name == "NATO"  # Falls back to ticker
@@ -1320,7 +1304,7 @@ class TestYahooFinanceFallbackLogic:
         mock_yf.Ticker.side_effect = ticker_side_effect
 
         service = YahooFinanceService()
-        result = service.search_by_isin("DE123456789")
+        result = service.search_by_isin("DE1234567890")
 
         assert result is not None
         assert result.symbol == "TEST.DE"
@@ -1351,7 +1335,7 @@ class TestYahooFinanceFallbackLogic:
         )
 
         service = YahooFinanceService()
-        result = service.search_by_isin("GB123456789")
+        result = service.search_by_isin("GB1234567890")
 
         assert result is not None
         # Since Yahoo has no price, returns justETF data directly
@@ -1411,7 +1395,7 @@ class TestYahooFinanceFallbackLogic:
         mock_justetf.search_by_isin.return_value = None
 
         service = YahooFinanceService()
-        result = service.search_by_isin("TEST123")
+        result = service.search_by_isin("IE00BK5BQT80")
 
         # Should return None after all fallbacks fail
         assert result is None
@@ -1430,6 +1414,6 @@ class TestYahooFinanceFallbackLogic:
         mock_justetf.search_by_isin.side_effect = Exception("Network error")
 
         service = YahooFinanceService()
-        result = service.search_by_isin("TEST123")
+        result = service.search_by_isin("IE00BK5BQT80")
 
         assert result is None

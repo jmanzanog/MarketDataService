@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import math
+import re
 from datetime import UTC, datetime
 
 import yfinance as yf
@@ -9,6 +10,16 @@ from src.models.schemas import InstrumentResponse, QuoteResponse
 from src.services.fallback_providers import justetf_provider
 
 logger = logging.getLogger(__name__)
+
+
+def is_valid_isin(isin: str) -> bool:
+    """
+    Validate ISIN code format (ISO 6166).
+    Standard: 2 letters, 9 alphanumeric characters, 1 check digit.
+    """
+    if not isin:
+        return False
+    return bool(re.match(r"^[A-Z]{2}[A-Z0-9]{9}\d$", isin.upper()))
 
 
 class YahooFinanceService:
@@ -65,6 +76,11 @@ class YahooFinanceService:
         Returns:
             InstrumentResponse if found, None otherwise.
         """
+        # Validate ISIN format before anything else
+        if not is_valid_isin(isin):
+            logger.warning(f"Invalid ISIN format received: {isin}")
+            return None
+
         try:
             # Step 1: yfinance search endpoint
             search_result = yf.Search(isin)
@@ -311,7 +327,18 @@ class YahooFinanceService:
 
             # 3. Final fallback: Return info even without price if it's better than nothing
             # (only if we didn't find any working symbol)
-            logger.warning(f"Could not find any working symbol for ticker {base_ticker} on {isin}.")
+            # IMPORTANT: We only return this if we are SURE it's better than nothing,
+            # but we logs it clearly as it might not have quotes.
+            logger.warning(
+                f"Could not find any working Yahoo symbol for ticker {base_ticker} on {isin}."
+            )
+
+            # Final safety check: if we are here, we try one last name search
+            # with the name we got from JustETF before giving up
+            result = self._try_search_by_name_fallback(isin, ticker_info.name)
+            if result:
+                return result
+
             return InstrumentResponse(
                 isin=isin,
                 symbol=ticker_info.symbol,
