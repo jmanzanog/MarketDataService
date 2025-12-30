@@ -168,7 +168,8 @@ Environment variables (see `.env.example`):
 
 ## Testing
 
-Run unit tests:
+### Unit and Integration Tests
+Run standard tests:
 ```bash
 pytest tests/ -v
 ```
@@ -176,6 +177,27 @@ pytest tests/ -v
 Run integration tests (requires internet):
 ```bash
 pytest tests/ -v -m integration
+```
+
+### End-to-End Tests (Docker)
+These tests build a real Docker container of the application and perform HTTP requests against it, simulating a real production environment:
+```bash
+pytest tests/test_container_integration.py -v -m container
+```
+*Note: Requires Docker to be running.*
+
+### Local CI Simulation
+To verify your code before creating a Pull Request, you can run the same checks performed by the GitHub Actions CI (linting, security, types, tests):
+
+**Windows (PowerShell):**
+```powershell
+.\verify.ps1
+```
+
+**Linux/macOS (Bash):**
+```bash
+chmod +x verify.sh
+./verify.sh
 ```
 
 ## Kubernetes Deployment
