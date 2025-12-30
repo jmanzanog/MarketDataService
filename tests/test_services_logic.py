@@ -61,11 +61,13 @@ class TestMetadataCache:
 
     def test_cache_get_exception(self, mock_cache):
         from unittest.mock import MagicMock
+
         mock_cache.redis.get = MagicMock(side_effect=Exception("Redis error"))
         assert mock_cache.get("US1234567890") is None
 
     def test_cache_set_exception(self, mock_cache):
         from unittest.mock import MagicMock
+
         mock_cache.redis.setex = MagicMock(side_effect=Exception("Redis error"))
         info = TickerInfo(symbol="A", name="B", exchange="C", currency="D")
         # Should not raise exception
@@ -75,7 +77,7 @@ class TestMetadataCache:
     def test_cache_init_success(self, mock_redis_class):
         mock_redis_instance = mock_redis_class.return_value
         mock_redis_instance.ping.return_value = True
-        
+
         cache = MetadataCache()
         assert cache.enabled is True
         assert cache.redis is not None
@@ -83,7 +85,7 @@ class TestMetadataCache:
     @patch("src.services.fallback_providers.redis.Redis")
     def test_cache_init_failure(self, mock_redis_class):
         mock_redis_class.side_effect = Exception("Connection failed")
-        
+
         cache = MetadataCache()
         assert cache.enabled is False
         assert cache.redis is None
@@ -125,8 +127,9 @@ class TestJustETFProviderResilience:
 
     def test_search_by_isin_cache_hit(self, provider):
         from src.services.fallback_providers import TickerInfo
+
         info = TickerInfo(symbol="CACHED", name="Cached", exchange="Ex", currency="USD")
-        
+
         with patch("src.services.fallback_providers.metadata_cache.get", return_value=info):
             result = provider.search_by_isin("IE00BK5BQT80")
             assert result == info
@@ -136,7 +139,9 @@ class TestJustETFProviderResilience:
     def test_search_by_isin_generic_exception(self, provider):
         # Trigger an exception inside the try block (e.g., BeautifulSoup failing)
         responses.add(responses.GET, provider.BASE_URL, body="<html><body>")
-        with patch("src.services.fallback_providers.BeautifulSoup", side_effect=Exception("Parsing error")):
+        with patch(
+            "src.services.fallback_providers.BeautifulSoup", side_effect=Exception("Parsing error")
+        ):
             result = provider.search_by_isin("IE00BK5BQT80")
             assert result is None
 
@@ -198,7 +203,10 @@ class TestJustETFParsing:
         assert provider._extract_ticker(BeautifulSoup("", "html.parser"), "") is None
 
     def test_extract_name_none(self, provider):
-        assert provider._extract_name(BeautifulSoup("<html><body></body></html>", "html.parser")) is None
+        assert (
+            provider._extract_name(BeautifulSoup("<html><body></body></html>", "html.parser"))
+            is None
+        )
 
 
 class TestYahooFinanceServiceExtensions:
