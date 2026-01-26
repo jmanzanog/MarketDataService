@@ -3,7 +3,7 @@ fastapi==0.128.0
 uvicorn[standard]==0.40.0
 
 # Yahoo Finance
-yfinance==1.0
+yfinance==1.1.0
 
 # HTTP client and HTML parsing (for fallback providers)
 requests==2.32.5
