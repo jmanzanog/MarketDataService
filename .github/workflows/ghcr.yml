@@ -68,6 +68,8 @@ jobs:
             gh release create "$VERSION" --target "$HEAD_SHA" --title "$VERSION" --notes "Automated release for $VERSION"
           fi
 
+      - uses: docker/setup-buildx-action@v4
+
       - name: Build Docker Image
         uses: docker/build-push-action@v7
         with:
