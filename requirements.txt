@@ -8,7 +8,7 @@ yfinance==1.2.0
 # HTTP client and HTML parsing (for fallback providers)
 requests==2.33.0
 beautifulsoup4==4.14.3
-redis==7.3.0
+redis==7.4.0
 
 # Data validation
 pydantic==2.12.5
