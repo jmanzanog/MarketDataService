@@ -24,4 +24,4 @@ fakeredis==2.35.1
 responses==0.26.0
 
 # Linting (dev)
-ruff==0.15.12
+ruff==0.15.14
